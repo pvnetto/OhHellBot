@@ -42,22 +42,26 @@ module.exports = class GameManager {
 
     get trumpCard() { return this._currentTrump; }
 
-    async distributeCards({ lobby, telegram, reply }) {
+    async distributeCards({ lobby, telegram }) {
 
         let firstPlayer = this.players[0];
 
         this.deck.reset();
         this.deck.shuffle();
-        this._currentTrump = this.deck.drawSingleCard();
+        const { drawn, trump } = this.deck.drawTrumpCard();
+        this._currentTrump = trump;
 
         this.players.forEach(player => {
             this.hands[player.id] = this.deck.drawCards(this.cardsToDraw);
         });
 
         await this._handleCardMessages(telegram);
-        await this._sendCardPhoto(lobby.groupId, this._currentTrump, `*Round #${this.roundCount}.*\n${firstPlayer.first_name} shuffles the deck, `
-            + `draws a ${this._currentTrump.rank} of ${this._currentTrump.suit} (the trump for this round), and deals `
-            + `the remaining cards.`, { telegram });
+        await this._sendCardPhoto(lobby.groupId, this._currentTrump,
+            `*Round #${this.roundCount}.*\n${firstPlayer.first_name} shuffles the deck, `
+            + `draws a ${drawn.rank} of ${drawn.suit} from the top of the deck and deals ${this.cardsToDraw} `
+            + `card${this.cardsToDraw > 1 ? 's' : ''} for each player.`
+            + `\nThe trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`,
+            { telegram });
     }
 
     async _handleCardMessages(telegram) {
@@ -114,10 +118,10 @@ module.exports = class GameManager {
         // if (this.players.length <= 1) {
         //     if (this.players.length === 1) {
         //         let winner = this.players[0];
-        //         await telegram.sendMessage(lobby.groupId, `Game ended.\n${winner.first_name} is the winner!`);
+        //         await telegram.sendMessage(lobby.groupId, `Game over.\n${winner.first_name} is the winner!`);
         //     }
         //     else {
-        //         await telegram.sendMessage(lobby.groupId, 'Game ended.\nIt's a draw!');
+        //         await telegram.sendMessage(lobby.groupId, 'Game over.\nIt's a draw!');
         //     }
 
         //     game.gameManager = null;

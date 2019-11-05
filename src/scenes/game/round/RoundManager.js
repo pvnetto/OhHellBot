@@ -1,5 +1,6 @@
 const Extra = require('telegraf/extra');
 const { reorderPlayers } = require('../utils');
+const { evaluateCards } = require('../cards/evaluator');
 
 module.exports = class RoundManager {
 
@@ -107,7 +108,7 @@ module.exports = class RoundManager {
     async _evaluateTurnCards({ game, lobby, telegram }) {
         const playedCards = Object.values(this.turnCards);
         const trumpCard = game.gameManager.trumpCard;
-        const winnerCard = game.gameManager.deck.evaluateCards(playedCards, trumpCard);
+        const winnerCard = evaluateCards(playedCards, trumpCard);
 
         let turnMsg = `*End of turn.*\n`
 
