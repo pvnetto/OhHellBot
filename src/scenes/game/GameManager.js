@@ -6,6 +6,7 @@ module.exports = class GameManager {
     constructor(lobby) {
         // Match parameters
         this.players = [...lobby.players];
+        this.startPlayers = [...this.players];
         this.owner = Object.assign({}, lobby.owner);
 
         // Picks a random player to be the first to shuffle/play
@@ -25,68 +26,63 @@ module.exports = class GameManager {
 
         // Draw variables
         this.cardsToDraw = 1;
-        this.maxDraw = Math.floor((this.deck.maxDeckSize - 1) / this.players.length);
+        this.maxDraw = Math.min(Math.floor((this.deck.maxDeckSize - 1) / this.players.length), 7);
         this.reachedMaxDraw = false;
         this.hands = {};
 
         // Binding methods
         this.distributeCards.bind(this);
         this._handleCardMessages.bind(this);
+        this._sendMessageWithOpponentCards.bind(this);
+        this._sendMessageWithPlayerCards.bind(this);
         this.endRound.bind(this);
         this._resolveRound.bind(this);
         this._handleCardsToDrawIncrement.bind(this);
     }
 
-    get trumpCard() { return this._currentTrump };
+    get trumpCard() { return this._currentTrump; }
 
-    async distributeCards({ telegram, reply }) {
+    async distributeCards({ lobby, telegram, reply }) {
+
         let firstPlayer = this.players[0];
 
+        this.deck.reset();
         this.deck.shuffle();
-        await reply(`${firstPlayer.first_name} is the server for this round.`);
-
         this._currentTrump = this.deck.drawSingleCard();
-        await reply(`The trump for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}`);
 
         this.players.forEach(player => {
             this.hands[player.id] = this.deck.drawCards(this.cardsToDraw);
         });
 
         await this._handleCardMessages(telegram);
-        await reply(`The cards were drawn.`);
+        await this._sendCardPhoto(lobby.groupId, this._currentTrump, `*Round #${this.roundCount}.*\n${firstPlayer.first_name} shuffles the deck, `
+            + `draws a ${this._currentTrump.rank} of ${this._currentTrump.suit} (the trump for this round), and deals `
+            + `the remaining cards.`, { telegram });
     }
 
     async _handleCardMessages(telegram) {
         if (this.roundCount === 1) {
-            let msgPromises = this.players.map(async (player) => {
-                await telegram.sendMessage(player.id, "Your opponents cards for this turn: \n");
-
-                let photoPromises = Object.keys(this.hands).map(async (id) => {
-                    if (id != player.id) {
-                        let opponentCard = this.hands[id][0];
-                        let opponent = this.players.find(opponent => opponent.id == id);
-
-                        let cardPhoto = __dirname + `/cards/images/${opponentCard.rank}_${opponentCard.suit}.png`;
-                        await telegram.sendPhoto(player.id, { source: cardPhoto }, { caption: `${opponent.first_name}'s card` });
-                    }
-                });
-                await Promise.all(photoPromises);
-            });
-
-            await Promise.all(msgPromises);
+            await this._sendMessageWithOpponentCards(telegram);
         }
         else {
-            let msgPromises = Object.keys(this.hands).map(async (playerId) => {
-                let msg = "Your cards for this turn: \n";
-                hands[playerId].forEach(card => msg += `${card.rank} of ${card.suit}\n`);
-                await telegram.sendMessage(playerId, msg);
-            });
-
-            await Promise.all(msgPromises);
+            await this._sendMessageWithPlayerCards(telegram);
         }
     }
 
-    async _sendFirstRoundMessages(telegram) {
+    async _sendMessageWithPlayerCards(telegram) {
+        let msgPromises = this.players.map(async (player) => {
+            await telegram.sendMessage(player.id, "Your cards for this turn: \n");
+
+            let photoPromises = this.hands[player.id].map(async (playerCard, idx) => {
+                await this._sendCardPhoto(player.id, playerCard, `${idx} - ${playerCard.rank} of ${playerCard.suit}`, { telegram })
+            });
+            await Promise.all(photoPromises);
+        });
+
+        await Promise.all(msgPromises);
+    }
+
+    async _sendMessageWithOpponentCards(telegram) {
         if (this.roundCount === 1) {
             let msgPromises = this.players.map(async (player) => {
                 await telegram.sendMessage(player.id, "Your opponents cards for this turn: \n");
@@ -95,9 +91,7 @@ module.exports = class GameManager {
                     if (id != player.id) {
                         let opponentCard = this.hands[id][0];
                         let opponent = this.players.find(opponent => opponent.id == id);
-
-                        let cardPhoto = __dirname + `/cards/images/${opponentCard.rank}_${opponentCard.suit}.png`;
-                        await telegram.sendPhoto(player.id, { source: cardPhoto }, { caption: `${opponent.first_name}'s card` });
+                        await this._sendCardPhoto(player.id, opponentCard, `${opponent.first_name}'s card`, { telegrm });
                     }
                 });
                 await Promise.all(photoPromises);
@@ -107,49 +101,66 @@ module.exports = class GameManager {
         }
     }
 
-    async endRound(bets, roundScores, { scene, game, reply }) {
-
-        await this._resolveRound(bets, roundScores, { reply });
-
-        // Checks if match has ended
-        if (this.players.length <= 1) {
-            if (this.players.length === 1) {
-                let winner = this.players[0];
-                await reply(`Game ended! ${winner.first_name} wins!`);
-            }
-            else {
-                await reply('Draw!');
-            }
-
-            game.gameManager = null;
-            await scene.enter('greeter');
-        }
-        else {
-            this.players = reorderPlayers(this.players, this.players[1]);
-            this.roundCount += 1;
-            this._handleCardsToDrawIncrement();
-        }
-
-        game.betManager = null;
+    async _sendCardPhoto(id, card, caption, { telegram }) {
+        const cardURL = __dirname + `/cards/images/${card.rank}_${card.suit}.png`;
+        await telegram.sendPhoto(id, { source: cardURL }, { caption, parse_mode: 'markdown' });
     }
 
-    async _resolveRound(bets, roundScores, { reply }) {
-        let roundPromises = Object.keys(bets).map(async (key) => {
-            let strikeCount = Math.abs(bets[key] - roundScores[key]);
-            let currentPlayer = this.players.find(player => player.id == key);
-            this.strikes[key] += strikeCount;
-            await reply(`${currentPlayer.first_name} got ${strikeCount} strikes this round.`);
+    async endRound(bets, roundScores, { scene, lobby, game, telegram }) {
 
-            let currentPlayerStrikes = this.strikes[key];
-            if (currentPlayerStrikes >= 5) {
-                // Announces if someone was eliminated
-                let eliminatedIdx = this.players.findIndex(player => player.id == key);
-                let [eliminatedPlayer] = this.players.splice(eliminatedIdx, 1);
-                await reply(`${eliminatedPlayer.first_name} is eliminated with ${currentPlayerStrikes} strikes.`)
+        await this._resolveRound(bets, roundScores, { lobby, telegram });
+
+        // Checks if match has ended
+        // if (this.players.length <= 1) {
+        //     if (this.players.length === 1) {
+        //         let winner = this.players[0];
+        //         await telegram.sendMessage(lobby.groupId, `Game ended.\n${winner.first_name} is the winner!`);
+        //     }
+        //     else {
+        //         await telegram.sendMessage(lobby.groupId, 'Game ended.\nIt's a draw!');
+        //     }
+
+        //     game.gameManager = null;
+        //     await scene.enter('greeter');
+        // }
+        // else {
+        //     this.players = reorderPlayers(this.players, this.players[1]);
+        //     this.roundCount += 1;
+        //     this._handleCardsToDrawIncrement();
+        //     await scene.enter('bets');
+        // }
+
+        this.players = reorderPlayers(this.players, this.players[1]);
+        this.roundCount += 1;
+        this._handleCardsToDrawIncrement();
+
+        await scene.enter('bets');
+    }
+
+    async _resolveRound(bets, roundScores, { lobby, telegram }) {
+        let roundMsg = `*End of round #${this.roundCount}*\n`;
+        this.startPlayers.forEach((currentPlayer) => {
+            if (this.players.includes(currentPlayer)) {
+                let strikeCount = Math.abs(bets[currentPlayer.id] - roundScores[currentPlayer.id]);
+                this.strikes[currentPlayer.id] += strikeCount;
+
+                const currentPlayerStrikes = this.strikes[currentPlayer.id];
+                const isEliminated = currentPlayerStrikes >= 5;
+
+                if (isEliminated) {
+                    let eliminatedIdx = this.players.findIndex(player => player.id == currentPlayer.id);
+                    let [eliminatedPlayer] = this.players.splice(eliminatedIdx, 1);
+                }
+
+                roundMsg += `[${currentPlayer.first_name}](tg://user?id=${currentPlayer.id}) - Strikes: ${strikeCount} | `
+                    + `Total: ${currentPlayerStrikes}${isEliminated ? '| Eliminated' : ''}\n`;
+            }
+            else {
+                roundMsg += `${currentPlayer.first_name} - Eliminated.\n`;
             }
         });
 
-        await Promise.all(roundPromises);
+        await telegram.sendMessage(lobby.groupId, roundMsg, { parse_mode: 'markdown' });
     }
 
     _handleCardsToDrawIncrement() {

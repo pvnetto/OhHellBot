@@ -5,16 +5,11 @@ module.exports = class BetManager {
 
     constructor({ game, scene }) {
         this.players = [...game.gameManager.players];
-        this.isFirstRound = game.gameManager.roundCount === 1;
+        this.roundCount = game.gameManager.roundCount;
         this.cardCount = game.gameManager.cardsToDraw;
-
-        if (this.isFirstRound) {
-            this.players = reorderPlayers(this.players, this.players[1]);
-        }
 
         // Game variables
         this.scene = scene;
-        game.betManager = this;
 
         // Bet variables
         this.bets = {};
@@ -28,16 +23,25 @@ module.exports = class BetManager {
         this._getValidBetValues.bind(this);
         this._getInvalidBetValues.bind(this);
         this.listBets.bind(this);
+
+        game.betManager = this;
     }
 
+    get isFirstRound() { return this.roundCount === 1; }
+
     async beginBetPhase({ lobby, telegram }) {
-        await telegram.sendMessage(lobby.groupId, 'Beginning the bet round.');
+        if (!this.isFirstRound) {
+            this.players = reorderPlayers(this.players, this.players[1]);
+        }
+        const firstPlayer = this.players[this.currentPlayerIdx];
+        const betOrderMsg = this._getBetOrderMsg();
+        await telegram.sendMessage(lobby.groupId, `\n*Beginning the bet round.*\n${betOrderMsg}`, { parse_mode: 'markdown' });
         await this._sendMessageToBetPlayer({ lobby, telegram });
     }
 
     async _sendMessageToBetPlayer({ lobby, telegram }) {
         const currentPlayer = this.players[this.currentPlayerIdx];
-        await telegram.sendMessage(lobby.groupId, `It's ${currentPlayer.first_name}'s turn to bet.`);
+        await telegram.sendMessage(lobby.groupId, `It's [${currentPlayer.first_name}](tg://user?id=${currentPlayer.id})'s turn to bet.`, { parse_mode: 'markdown' });
 
         const betRange = this._getValidBetValues();
         const betOptions = Extra.HTML().markup((m) => (
@@ -58,14 +62,14 @@ module.exports = class BetManager {
         return await this._placeBet(from, betValue, { lobby, telegram, reply });
     }
 
-    async delegateBet({ from, lobby, match, telegram, reply }) {
+    async delegateBet({ from, match, lobby, telegram, reply }) {
         await this._placeBet(from, parseInt(match[1]), { lobby, telegram, reply });
     }
 
     async _placeBet(betPlayer, betValue, { lobby, telegram, reply }) {
         let turnPlayer = this.players[this.currentPlayerIdx];
         if (betPlayer.id != turnPlayer.id) return await reply(`It's not your turn to bet!`);
-        if (!Number.isInteger(betValue)) return reply('Please, enter a valid bet value.');
+        if (!Number.isInteger(betValue)) return await reply('Please, enter a valid bet value.');
         if (betValue < 0) return await reply(`You can't bet a negative value.`);
         if (this._checkInvalidBetSum(betValue)) return await reply(`Invalid bet value. The sum of all bets can't match the number of drawn cards.`);
 
@@ -75,8 +79,8 @@ module.exports = class BetManager {
 
         // Checks if the bet round has ended
         if (this.currentPlayerIdx >= this.players.length) {
-            await telegram.sendMessage(lobby.groupId, `Bet phase ended!`);
-            await this.listBets({ lobby, telegram });
+            const betListMsg = this._getBetListMsg();
+            await telegram.sendMessage(lobby.groupId, `*Bet round ended.*\n${betListMsg}`, { parse_mode: 'markdown' });
             await this.scene.enter('round');
         }
         else {
@@ -115,14 +119,18 @@ module.exports = class BetManager {
             return newSum;
         }, 0);
 
-        if (newSum > this.cardCount) return [];
+        if (currentSum > this.cardCount) return [];
 
-        return [Math.abs(this.cardCount - newSum)];
+        return [Math.abs(this.cardCount - currentSum)];
     }
 
     async listBets({ lobby, telegram }) {
-        if (Object.keys(this.bets).length === 0) return telegram.sendMessage(lobby.groupId, 'No bets were placed this round.');
+        let msg = this._getBetListMsg();
+        await telegram.sendMessage(lobby.groupId, msg);
+    }
 
+    _getBetListMsg() {
+        if (Object.keys(this.bets).length === 0) 'No bets were placed this round.';
         let msg = 'Bets for this round:\n';
 
         Object.keys(this.bets).forEach(key => {
@@ -131,7 +139,14 @@ module.exports = class BetManager {
             msg += `${betPlayer.first_name} - ${betValue}\n`;
         });
 
-        await telegram.sendMessage(lobby.groupId, msg);
+        return msg;
+    }
+
+    _getBetOrderMsg() {
+        let msg = `Bet order:\n`;
+        this.players.forEach((player, idx) => msg += `${idx} - ${player.first_name}`);
+
+        return msg;
     }
 
 }

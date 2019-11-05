@@ -5,8 +5,7 @@ const round = new Scene('round');
 let roundManager = null;
 
 round.enter(async (ctx) => {
-    await ctx.reply('Beginning the play round.');
-    roundManager = new RoundManager(ctx.game.gameManager);
+    roundManager = new RoundManager(ctx);
     await roundManager.startTurn(ctx);
 });
 

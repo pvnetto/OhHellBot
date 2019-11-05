@@ -7,14 +7,10 @@ let betManager = null;
 bets.enter(async (ctx) => {
     await ctx.game.gameManager.distributeCards(ctx);
     betManager = new BetManager(ctx);
-    betManager.beginBetPhase(ctx);
+    await betManager.beginBetPhase(ctx);
 });
 
-bets.command('bet', (ctx) => {
-    console.log("Betting");
-    betManager.bet(ctx);
-});
-
+bets.command('bet', (ctx) => betManager.bet(ctx));
 bets.command('bets', (ctx) => betManager.listBets(ctx));
 bets.command('scores', (ctx) => console.log("showing scores"));
 

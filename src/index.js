@@ -24,6 +24,7 @@ bot.context.lobby = {
 bot.context.game = {
     gameManager: null,
     betManager: null,
+    roundManager: null,
 };
 
 bot.use(session());

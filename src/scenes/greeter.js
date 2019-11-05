@@ -22,20 +22,26 @@ greeter.command('new', ({ from, chat, scene, reply, lobby }) => {
     }
 });
 
-// Delegates button actions to game session
-greeter.action(/bet (.+)/, async (ctx) => {
-    if (ctx.game.betManager) {
-        await ctx.game.betManager.delegateBet(ctx);
-        await ctx.deleteMessage();
-    }
-});
-
 greeter.help(({ chat, reply }) => {
     if (chat.type === 'group') {
         reply(groupHelp);
     }
     else {
         reply(greetMsg)
+    }
+});
+
+// Delegates button actions to game session
+greeter.action(/bet (.+)/, async (ctx) => {
+    if (ctx.game.betManager) {
+        ctx.deleteMessage()
+            .then(msg => ctx.game.betManager.delegateBet(ctx))
+            .catch(err => console.log(err));
+    }
+});
+greeter.action(/play (.+)/, async (ctx) => {
+    if (ctx.game.roundManager) {
+        ctx.game.roundManager.delegatePlay(ctx);
     }
 });
 
