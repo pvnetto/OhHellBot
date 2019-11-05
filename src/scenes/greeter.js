@@ -31,18 +31,4 @@ greeter.help(({ chat, reply }) => {
     }
 });
 
-// Delegates button actions to game session
-greeter.action(/bet (.+)/, async (ctx) => {
-    if (ctx.game.betManager) {
-        ctx.deleteMessage()
-            .then(msg => ctx.game.betManager.delegateBet(ctx))
-            .catch(err => console.log(err));
-    }
-});
-greeter.action(/play (.+)/, async (ctx) => {
-    if (ctx.game.roundManager) {
-        ctx.game.roundManager.delegatePlay(ctx);
-    }
-});
-
 module.exports = greeter;

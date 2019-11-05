@@ -57,10 +57,10 @@ module.exports = class GameManager {
 
         await this._handleCardMessages(telegram);
         await this._sendCardPhoto(lobby.groupId, this._currentTrump,
-            `*Round #${this.roundCount}.*\n${firstPlayer.first_name} shuffles the deck, `
-            + `draws a ${drawn.rank} of ${drawn.suit} from the top of the deck and deals ${this.cardsToDraw} `
-            + `card${this.cardsToDraw > 1 ? 's' : ''} for each player.`
-            + `\nThe trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`,
+            `*Round #${this.roundCount}.*\n`
+            + `${firstPlayer.first_name} shuffles the deck, draws a ${drawn.rank} of ${drawn.suit} from the top of the deck `
+            + `and deals ${this.cardsToDraw} card${this.cardsToDraw > 1 ? 's' : ''} for each player.\n`
+            + `The trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`,
             { telegram });
     }
 

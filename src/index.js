@@ -32,4 +32,18 @@ bot.use(stage.middleware());
 bot.on('sticker', (ctx) => ctx.reply("👌"));
 // bot.hears('hi', (ctx) => ctx.reply("Hello!"));
 
+// Delegates button actions to game session
+bot.action(/bet (.+)/, async (ctx) => {
+    if (ctx.game.betManager) {
+        ctx.deleteMessage()
+            .then(msg => ctx.game.betManager.delegateBet(ctx))
+            .catch(err => console.log(err));
+    }
+});
+bot.action(/play (.+)/, async (ctx) => {
+    if (ctx.game.roundManager) {
+        ctx.game.roundManager.delegatePlay(ctx);
+    }
+});
+
 bot.launch();
