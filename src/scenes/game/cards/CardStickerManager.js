@@ -6,9 +6,30 @@ module.exports = class CardStickerManager {
         this.stickers = null;
     }
 
-    async getCardSticker(card, { telegram }) {
+    async getStickerByCard(card, { telegram }) {
         this.stickers = this.stickers || await this._buildStickerSet({ telegram });
         return this.stickers[card.suit][card.rank];
+    }
+
+    async getCardBySticker(sticker, { telegram }) {
+        this.stickers = this.stickers || await this._buildStickerSet({ telegram });
+        const stickerId = sticker.file_id;
+
+        const suitKeys = Object.keys(Suits);
+        const rankKeys = Object.keys(Ranks);
+
+        for (let i = 0; i < suitKeys.length; i++) {
+            for (let j = 0; j < rankKeys.length; j++) {
+                const suit = suitKeys[i];
+                const rank = rankKeys[j];
+                const currentStickerId = this.stickers[suit][rank].file_id;
+                if (stickerId == currentStickerId) {
+                    return { rank, suit };
+                }
+            }
+        }
+
+        return null;
     }
 
     async _buildStickerSet({ telegram }) {

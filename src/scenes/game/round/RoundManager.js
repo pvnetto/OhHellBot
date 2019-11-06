@@ -57,17 +57,11 @@ module.exports = class RoundManager {
     }
 
     async playCard({ from, message, lobby, game, telegram, reply }) {
-        let cardIdx = message.text.split(' ').slice(1).join('');
-        cardIdx = parseInt(cardIdx);
-
-        return await this._placeCard(from, cardIdx, { lobby, game, telegram, reply });
-    }
-
-    async delegatePlay({ from, match, lobby, game, telegram, reply }) {
-        const cardArgs = match[1].split(',');
-        const cardIdx = this.hands[from.id].findIndex(card => card.rank == cardArgs[0] && card.suit == cardArgs[1]);
-
-        return await this._placeCard(from, cardIdx, { lobby, game, telegram, reply });
+        const card = await game.stickerManager.getCardBySticker(message.sticker, { telegram });
+        if (card) {
+            let cardIdx = this.hands[from.id].findIndex(playerCard => playerCard.suit === card.suit && playerCard.rank === card.rank);
+            return await this._placeCard(from, cardIdx, { lobby, game, telegram, reply });
+        }
     }
 
     async _placeCard(cardPlayer, cardIdx, { lobby, game, telegram, reply }) {
@@ -79,8 +73,8 @@ module.exports = class RoundManager {
         // Removes card from player hand and places it on the pile of turn cards
         let [cardPlayed] = this.hands[cardPlayer.id].splice(cardIdx, 1);
         this.turnCards[cardPlayer.id] = cardPlayed;
-        await telegram.sendMessage(lobby.groupId, `${cardPlayer.first_name} plays ${cardPlayed.rank} of ${cardPlayed.suit}.`);
 
+        // Increments turn player index
         this._turnPlayerIdx += 1;
         if (this._turnPlayerIdx >= this.players.length) {
             await this._evaluateTurnCards({ game, lobby, telegram });
@@ -124,10 +118,22 @@ module.exports = class RoundManager {
         await telegram.sendMessage(lobby.groupId, turnMsg, { parse_mode: 'markdown' });
     }
 
-    getPlayerCards({ from }) {
+    async getPlayerInlineQueryOptions({ from, game, telegram }) {
         if (this._currentRoundCount === 1) return [];
 
-        return this.hands[from.id] || [];
+        const playerCards = this.hands[from.id];
+        const cardOptions = [];
+        const cardPromises = playerCards.map(async (card, idx) => {
+            const cardSticker = await game.stickerManager.getStickerByCard(card, { telegram });
+            cardOptions.push({
+                type: 'sticker',
+                id: idx,
+                sticker_file_id: cardSticker.file_id,
+            });
+        });
+        await Promise.all(cardPromises);
+
+        return cardOptions;
     }
 
     async listRoundScore({ lobby, telegram }) {

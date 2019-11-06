@@ -108,7 +108,7 @@ module.exports = class GameManager {
     }
 
     async _sendCardSticker(id, card, { game, telegram }) {
-        const cardSticker = await game.stickerManager.getCardSticker(card, { telegram });
+        const cardSticker = await game.stickerManager.getStickerByCard(card, { telegram });
         await telegram.sendSticker(id, cardSticker.file_id);
     }
 

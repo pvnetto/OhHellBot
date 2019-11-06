@@ -12,7 +12,6 @@ bets.enter(async (ctx) => {
 
 bets.command('bet', (ctx) => {
     betManager.bet(ctx);
-    console.log(ctx.message);
 });
 bets.command('bets', (ctx) => betManager.listBets(ctx));
 bets.command('scores', (ctx) => console.log("showing scores"));

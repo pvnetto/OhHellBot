@@ -12,5 +12,6 @@ round.enter(async (ctx) => {
 round.command('play', (ctx) => roundManager.playCard(ctx));
 round.command('strikes', (ctx) => roundManager.listRoundScore(ctx));
 round.command('scores', (ctx) => console.log("showing scores"));
+round.on('sticker', async (ctx) => await roundManager.playCard(ctx));
 
 module.exports = round;

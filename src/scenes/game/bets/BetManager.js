@@ -58,10 +58,6 @@ module.exports = class BetManager {
         return await this._placeBet(from, betValue, { lobby, telegram, reply });
     }
 
-    async delegateBet({ from, match, lobby, telegram, reply }) {
-        await this._placeBet(from, parseInt(match[1]), { lobby, telegram, reply });
-    }
-
     async _placeBet(betPlayer, betValue, { lobby, telegram, reply }) {
         let turnPlayer = this.players[this.currentPlayerIdx];
         if (betPlayer.id != turnPlayer.id) return await reply(`It's not your turn to bet!`);
