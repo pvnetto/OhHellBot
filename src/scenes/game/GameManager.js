@@ -1,13 +1,16 @@
 const CardsDeck = require('./cards/CardsDeck');
 const { reorderPlayers } = require('./utils');
+const { States } = require('./states');
 
 module.exports = class GameManager {
 
-    constructor({ lobby }) {
+    constructor({ lobby, scene }) {
         // Match parameters
         this.players = [...lobby.players];
         this.startPlayers = [...this.players];
         this.owner = Object.assign({}, lobby.owner);
+        this.scene = scene;
+        this._currentState = States.DRAW;
 
         // Picks a random player to be the first to shuffle/play
         let startingPlayerIdx = Math.floor(Math.random() * this.players.length);
@@ -41,6 +44,44 @@ module.exports = class GameManager {
     }
 
     get trumpCard() { return this._currentTrump; }
+
+    async switchState(newState) {
+        switch (newState) {
+            case States.BET:
+                this._currentState = States.BET;
+                await this.scene.enter('bets');
+                break;
+            case States.ROUND:
+                this._currentState = States.ROUND;
+                await this.scene.enter('round');
+                break;
+            default:
+                this._currentState = States.DRAW;
+                break;
+        }
+    }
+
+    async getInlineQueryOptions({ from, game, telegram, answerInlineQuery }) {
+        let queryOptions = [{
+            type: 'article',
+            id: 0,
+            title: `Wait...`,
+            description: ``,
+            thumb_url: '',
+            input_message_content: {
+                message_text: `It's not your turn to play.`,
+            },
+        }];
+
+        if (this._currentState === States.BET) {
+            queryOptions = game.betManager.getBetInlineQueryOptions();
+        }
+        else if (this._currentState === States.ROUND) {
+            queryOptions = await game.roundManager.getPlayerInlineQueryOptions({ from, game, telegram });
+        }
+
+        return await answerInlineQuery(queryOptions, { cache_time: 0 });
+    }
 
     async distributeCards({ lobby, game, telegram }) {
         let firstPlayer = this.players[0];
@@ -130,17 +171,16 @@ module.exports = class GameManager {
         //     await scene.enter('greeter');
         // }
         // else {
-        //     this.players = reorderPlayers(this.players, this.players[1]);
-        //     this.roundCount += 1;
-        //     this._handleCardsToDrawIncrement();
-        //     await scene.enter('bets');
+        //      this.players = reorderPlayers(this.players, this.players[1]);
+        //      this.roundCount += 1;
+        //      this._handleCardsToDrawIncrement();
+        //      await this.switchState(States.BET);
         // }
 
         this.players = reorderPlayers(this.players, this.players[1]);
         this.roundCount += 1;
         this._handleCardsToDrawIncrement();
-
-        await scene.enter('bets');
+        await this.switchState(States.BET);
     }
 
     async _resolveRound(bets, roundScores, { lobby, telegram }) {

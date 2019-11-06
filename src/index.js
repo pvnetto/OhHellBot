@@ -33,19 +33,9 @@ bot.use(session());
 bot.use(stage.middleware());
 
 bot.on('inline_query', async (ctx) => {
-    // if (ctx.game.betManager) {
-    //     const betOptions = ctx.game.betManager.getBetInlineQueryOptions();
-    //     return ctx.answerInlineQuery(betOptions);
-    // }
-    if (ctx.game.roundManager) {
-        const cardOptions = await ctx.game.roundManager.getPlayerInlineQueryOptions(ctx);
-
-        console.log(cardOptions);
-        if (cardOptions.length > 0) {
-            await ctx.answerInlineQuery(cardOptions, { cache_time: 0 });
-        }
+    if (ctx.game.gameManager) {
+        ctx.game.gameManager.getInlineQueryOptions(ctx);
     }
-
 });
 
 bot.launch();

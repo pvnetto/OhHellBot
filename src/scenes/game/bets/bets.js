@@ -10,9 +10,7 @@ bets.enter(async (ctx) => {
     await betManager.beginBetPhase(ctx);
 });
 
-bets.command('bet', (ctx) => {
-    betManager.bet(ctx);
-});
+bets.command('bet', async (ctx) => await betManager.bet(ctx));
 bets.command('bets', (ctx) => betManager.listBets(ctx));
 bets.command('scores', (ctx) => console.log("showing scores"));
 

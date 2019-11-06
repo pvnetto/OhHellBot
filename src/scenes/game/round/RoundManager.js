@@ -4,10 +4,9 @@ const { evaluateCards } = require('../cards/evaluator');
 
 module.exports = class RoundManager {
 
-    constructor({ game, scene }) {
+    constructor({ game }) {
         this.players = [...game.gameManager.players];
         this.cardDealer = this.players[0];
-        this.scene = scene;
 
         // The closest player to the card server starts playing, except for the first round
         if (game.gameManager.roundCount !== 1) {
@@ -36,13 +35,25 @@ module.exports = class RoundManager {
         this.turnCards = {};
         this._turnPlayerIdx = 0;
 
-        const firstPlayer = this.players[0];
         const playOrderMsg = this._getPlayOrderMsg();
         await telegram.sendMessage(lobby.groupId, `*Starting a new play turn.*\n${playOrderMsg}\n`, { parse_mode: 'markdown' });
-        await telegram.sendMessage(lobby.groupId, `[${firstPlayer.first_name}](tg://user?id=${firstPlayer.id}) starts playing.`, { parse_mode: 'markdown' });
+        await this._sendTurnPlayerAnnounce({ lobby, telegram });
 
         // Resolves the turn automatically if each player has only 1 card left
         await this._handleAutoPlayLastCards({ lobby, game, telegram, reply });
+    }
+
+    async _sendTurnPlayerAnnounce({ lobby, telegram }) {
+        let nextPlayer = this.players[this._turnPlayerIdx];
+        await telegram.sendMessage(lobby.groupId, `It's [${nextPlayer.first_name}](tg://user?id=${nextPlayer.id})'s turn to play.`,
+            {
+                parse_mode: 'markdown',
+                reply_markup: {
+                    inline_keyboard: [[{ text: "Play a card", switch_inline_query_current_chat: '' }]],
+                    force_reply: false,
+                }
+            }
+        );
     }
 
     async _handleAutoPlayLastCards({ lobby, game, telegram, reply }) {
@@ -81,15 +92,14 @@ module.exports = class RoundManager {
 
             let firstPlayerCards = this.hands[this.players[0].id];
             if (firstPlayerCards.length === 0) {
-                await game.gameManager.endRound(game.betManager.bets, this.roundScores, { scene: this.scene, lobby, game, telegram });
+                await game.gameManager.endRound(game.betManager.bets, this.roundScores, { lobby, game, telegram });
             }
             else {
                 await this.startTurn({ game, lobby, telegram, reply });
             }
         }
         else {
-            let nextPlayer = this.players[this._turnPlayerIdx];
-            await telegram.sendMessage(lobby.groupId, `Now it's [${nextPlayer.first_name}](tg://user?id=${nextPlayer.id})'s turn.`, { parse_mode: 'markdown' });
+            await this._sendTurnPlayerAnnounce({ lobby, telegram });
         }
     }
 

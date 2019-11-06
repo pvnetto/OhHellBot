@@ -1,15 +1,13 @@
 const Extra = require('telegraf/extra');
 const { reorderPlayers } = require('../utils');
+const { States } = require('../states');
 
 module.exports = class BetManager {
 
-    constructor({ game, scene }) {
+    constructor({ game }) {
         this.players = [...game.gameManager.players];
         this.roundCount = game.gameManager.roundCount;
         this.cardCount = game.gameManager.cardsToDraw;
-
-        // Game variables
-        this.scene = scene;
 
         // Bet variables
         this.bets = {};
@@ -52,13 +50,13 @@ module.exports = class BetManager {
         );
     }
 
-    async bet({ from, message, lobby, telegram, reply }) {
+    async bet({ from, message, lobby, game, telegram, reply }) {
         let betValue = message.text.split(' ').slice(1).join('');
         betValue = parseInt(betValue);
-        return await this._placeBet(from, betValue, { lobby, telegram, reply });
+        await this._placeBet(from, betValue, { lobby, game, telegram, reply });
     }
 
-    async _placeBet(betPlayer, betValue, { lobby, telegram, reply }) {
+    async _placeBet(betPlayer, betValue, { lobby, game, telegram, reply }) {
         let turnPlayer = this.players[this.currentPlayerIdx];
         if (betPlayer.id != turnPlayer.id) return await reply(`It's not your turn to bet!`);
         if (!Number.isInteger(betValue)) return await reply('Please, enter a valid bet value.');
@@ -74,7 +72,7 @@ module.exports = class BetManager {
         if (this.currentPlayerIdx >= this.players.length) {
             const betListMsg = this._getBetListMsg();
             await telegram.sendMessage(lobby.groupId, `*Bet round ended.*\n${betListMsg}`, { parse_mode: 'markdown' });
-            await this.scene.enter('round');
+            await game.gameManager.switchState(States.ROUND);
         }
         else {
             await this._announceBetTurnPlayer({ lobby, telegram });
