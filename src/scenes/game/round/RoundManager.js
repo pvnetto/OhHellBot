@@ -16,17 +16,17 @@ module.exports = class RoundManager {
 
         // This object is responsible for managing the remaining cards in a player's hands
         this.hands = Object.assign({}, game.gameManager.hands);
-        this.playMsgs = {};
+        this._playMsgs = {};
 
         // Round variables
         this.roundScores = this.players.reduce((newObj, player) => {
             newObj[player.id] = 0;
             return newObj;
         }, {});
-        this.isFirstTurn = true;
+        this._currentRoundCount = game.gameManager.roundCount;
 
         // Turn variables
-        this.turnPlayerIdx = 0;
+        this._turnPlayerIdx = 0;
         this.turnCards = {};
 
         game.roundManager = this;
@@ -34,12 +34,7 @@ module.exports = class RoundManager {
 
     async startTurn({ lobby, game, telegram, reply }) {
         this.turnCards = {};
-        this.turnPlayerIdx = 0;
-
-        if (this.isFirstTurn) {
-            await this._sendPlayButtons({ telegram });
-            this.isFirstTurn = false;
-        }
+        this._turnPlayerIdx = 0;
 
         const firstPlayer = this.players[0];
         const playOrderMsg = this._getPlayOrderMsg();
@@ -76,7 +71,7 @@ module.exports = class RoundManager {
     }
 
     async _placeCard(cardPlayer, cardIdx, { lobby, game, telegram, reply }) {
-        let turnPlayer = this.players[this.turnPlayerIdx];
+        let turnPlayer = this.players[this._turnPlayerIdx];
         if (!turnPlayer || cardPlayer.id != turnPlayer.id) return await reply(`It's not your turn to play!`);
         if (!Number.isInteger(cardIdx)) return await reply('Please, choose a valid card.');
         if (cardIdx < 0 || cardIdx >= this.hands[cardPlayer.id].length) return await reply('Please, choose a valid card.');
@@ -85,10 +80,9 @@ module.exports = class RoundManager {
         let [cardPlayed] = this.hands[cardPlayer.id].splice(cardIdx, 1);
         this.turnCards[cardPlayer.id] = cardPlayed;
         await telegram.sendMessage(lobby.groupId, `${cardPlayer.first_name} plays ${cardPlayed.rank} of ${cardPlayed.suit}.`);
-        await this._updatePlayBtns(cardPlayer, { telegram });
 
-        this.turnPlayerIdx += 1;
-        if (this.turnPlayerIdx >= this.players.length) {
+        this._turnPlayerIdx += 1;
+        if (this._turnPlayerIdx >= this.players.length) {
             await this._evaluateTurnCards({ game, lobby, telegram });
 
             let firstPlayerCards = this.hands[this.players[0].id];
@@ -100,7 +94,7 @@ module.exports = class RoundManager {
             }
         }
         else {
-            let nextPlayer = this.players[this.turnPlayerIdx];
+            let nextPlayer = this.players[this._turnPlayerIdx];
             await telegram.sendMessage(lobby.groupId, `Now it's [${nextPlayer.first_name}](tg://user?id=${nextPlayer.id})'s turn.`, { parse_mode: 'markdown' });
         }
     }
@@ -130,26 +124,10 @@ module.exports = class RoundManager {
         await telegram.sendMessage(lobby.groupId, turnMsg, { parse_mode: 'markdown' });
     }
 
-    async _sendPlayButtons({ telegram }) {
-        const messagePromises = this.players.map(async (player) => {
-            const playBtns = Extra.HTML().markup((m) => m.inlineKeyboard(this._getPlayBtns(player, m)));
-            this.playMsgs[player.id] = await telegram.sendMessage(player.id, "Click to play a card.", playBtns);
-        });
+    getPlayerCards({ from }) {
+        if (this._currentRoundCount === 1) return [];
 
-        await Promise.all(messagePromises);
-    }
-
-    async _updatePlayBtns(player, { telegram }) {
-        const playMsg = this.playMsgs[player.id];
-        const playBtns = Extra.HTML().markup((m) => m.inlineKeyboard(this._getPlayBtns(player, m)));
-        await telegram.editMessageText(playMsg.chat.id, playMsg.message_id, playMsg.message_id, "Click to play a card.", playBtns);
-    }
-
-    _getPlayBtns(player, m) {
-        return this.hands[player.id].reduce((btnArr, card) => {
-            btnArr.push([m.callbackButton(`Play ${card.rank} of ${card.suit}`, `play ${card.rank},${card.suit}`)]);
-            return btnArr;
-        }, []);
+        return this.hands[from.id] || [];
     }
 
     async listRoundScore({ lobby, telegram }) {

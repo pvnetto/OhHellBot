@@ -3,7 +3,7 @@ const { reorderPlayers } = require('./utils');
 
 module.exports = class GameManager {
 
-    constructor(lobby) {
+    constructor({ lobby }) {
         // Match parameters
         this.players = [...lobby.players];
         this.startPlayers = [...this.players];
@@ -42,8 +42,7 @@ module.exports = class GameManager {
 
     get trumpCard() { return this._currentTrump; }
 
-    async distributeCards({ lobby, telegram }) {
-
+    async distributeCards({ lobby, game, telegram }) {
         let firstPlayer = this.players[0];
 
         this.deck.reset();
@@ -55,30 +54,32 @@ module.exports = class GameManager {
             this.hands[player.id] = this.deck.drawCards(this.cardsToDraw);
         });
 
-        await this._handleCardMessages(telegram);
-        await this._sendCardPhoto(lobby.groupId, this._currentTrump,
+        await this._handleCardMessages({ game, telegram });
+        await this._sendCardSticker(lobby.groupId, this._currentTrump, { game, telegram });
+
+        const roundStartMsg =
             `*Round #${this.roundCount}.*\n`
             + `${firstPlayer.first_name} shuffles the deck, draws a ${drawn.rank} of ${drawn.suit} from the top of the deck `
             + `and deals ${this.cardsToDraw} card${this.cardsToDraw > 1 ? 's' : ''} for each player.\n`
-            + `The trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`,
-            { telegram });
+            + `The trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`;
+        await telegram.sendMessage(lobby.groupId, roundStartMsg, { parse_mode: 'markdown' });
     }
 
-    async _handleCardMessages(telegram) {
+    async _handleCardMessages({ game, telegram }) {
         if (this.roundCount === 1) {
-            await this._sendMessageWithOpponentCards(telegram);
+            await this._sendMessageWithOpponentCards({ game, telegram });
         }
         else {
-            await this._sendMessageWithPlayerCards(telegram);
+            await this._sendMessageWithPlayerCards({ game, telegram });
         }
     }
 
-    async _sendMessageWithPlayerCards(telegram) {
+    async _sendMessageWithPlayerCards({ game, telegram }) {
         let msgPromises = this.players.map(async (player) => {
             await telegram.sendMessage(player.id, "Your cards for this turn: \n");
 
-            let photoPromises = this.hands[player.id].map(async (playerCard, idx) => {
-                await this._sendCardPhoto(player.id, playerCard, `${idx} - ${playerCard.rank} of ${playerCard.suit}`, { telegram })
+            let photoPromises = this.hands[player.id].map(async (playerCard) => {
+                await this._sendCardSticker(player.id, playerCard, { game, telegram });
             });
             await Promise.all(photoPromises);
         });
@@ -86,7 +87,7 @@ module.exports = class GameManager {
         await Promise.all(msgPromises);
     }
 
-    async _sendMessageWithOpponentCards(telegram) {
+    async _sendMessageWithOpponentCards({ game, telegram }) {
         if (this.roundCount === 1) {
             let msgPromises = this.players.map(async (player) => {
                 await telegram.sendMessage(player.id, "Your opponents cards for this turn: \n");
@@ -95,7 +96,8 @@ module.exports = class GameManager {
                     if (id != player.id) {
                         let opponentCard = this.hands[id][0];
                         let opponent = this.players.find(opponent => opponent.id == id);
-                        await this._sendCardPhoto(player.id, opponentCard, `${opponent.first_name}'s card`, { telegrm });
+                        await this._sendCardSticker(player.id, opponentCard, { game, telegram });
+                        await telegram.sendMessage(player.id, `${opponent.first_name}'s card`, { parse_mode: 'markdown' });
                     }
                 });
                 await Promise.all(photoPromises);
@@ -105,9 +107,9 @@ module.exports = class GameManager {
         }
     }
 
-    async _sendCardPhoto(id, card, caption, { telegram }) {
-        const cardURL = __dirname + `/cards/images/${card.rank}_${card.suit}.png`;
-        await telegram.sendPhoto(id, { source: cardURL }, { caption, parse_mode: 'markdown' });
+    async _sendCardSticker(id, card, { game, telegram }) {
+        const cardSticker = await game.stickerManager.getCardSticker(card, { telegram });
+        await telegram.sendSticker(id, cardSticker.file_id);
     }
 
     async endRound(bets, roundScores, { scene, lobby, game, telegram }) {

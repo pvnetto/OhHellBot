@@ -16,7 +16,7 @@ module.exports = class BetManager {
         this.currentPlayerIdx = 0;
 
         this.beginBetPhase.bind(this);
-        this._sendMessageToBetPlayer.bind(this);
+        this._announceBetTurnPlayer.bind(this);
         this.bet.bind(this);
         this._placeBet.bind(this);
         this._checkInvalidBetSum.bind(this);
@@ -33,27 +33,23 @@ module.exports = class BetManager {
         if (!this.isFirstRound) {
             this.players = reorderPlayers(this.players, this.players[1]);
         }
-        const firstPlayer = this.players[this.currentPlayerIdx];
+
         const betOrderMsg = this._getBetOrderMsg();
         await telegram.sendMessage(lobby.groupId, `\n*Beginning the bet round.*\n${betOrderMsg}`, { parse_mode: 'markdown' });
-        await this._sendMessageToBetPlayer({ lobby, telegram });
+        await this._announceBetTurnPlayer({ lobby, telegram });
     }
 
-    async _sendMessageToBetPlayer({ lobby, telegram }) {
+    async _announceBetTurnPlayer({ lobby, telegram }) {
         const currentPlayer = this.players[this.currentPlayerIdx];
-        await telegram.sendMessage(lobby.groupId, `It's [${currentPlayer.first_name}](tg://user?id=${currentPlayer.id})'s turn to bet.`, { parse_mode: 'markdown' });
-
-        const betRange = this._getValidBetValues();
-        const betOptions = Extra.HTML().markup((m) => (
-            m.inlineKeyboard(
-                betRange.reduce((btns, num) => {
-                    btns.push(m.callbackButton(`Bet ${num}`, `bet ${num}`));
-                    return btns;
-                }, [])
-            )
-        ));
-
-        await telegram.sendMessage(currentPlayer.id, `It's your turn to bet.`, betOptions);
+        await telegram.sendMessage(lobby.groupId, `It's [${currentPlayer.first_name}](tg://user?id=${currentPlayer.id})'s turn to bet.`,
+            {
+                parse_mode: 'markdown',
+                reply_markup: {
+                    inline_keyboard: [[{ text: "Make your bet", switch_inline_query_current_chat: '' }]],
+                    force_reply: false,
+                }
+            }
+        );
     }
 
     async bet({ from, message, lobby, telegram, reply }) {
@@ -71,6 +67,7 @@ module.exports = class BetManager {
         if (betPlayer.id != turnPlayer.id) return await reply(`It's not your turn to bet!`);
         if (!Number.isInteger(betValue)) return await reply('Please, enter a valid bet value.');
         if (betValue < 0) return await reply(`You can't bet a negative value.`);
+        if (betValue > this.cardCount) return await reply(`You can't bet a value greater than the number of cards in your hand.`)
         if (this._checkInvalidBetSum(betValue)) return await reply(`Invalid bet value. The sum of all bets can't match the number of drawn cards.`);
 
         this.bets[betPlayer.id] = betValue;
@@ -84,8 +81,24 @@ module.exports = class BetManager {
             await this.scene.enter('round');
         }
         else {
-            await this.sendMessageToBetPlayer({ telegram, lobby });
+            await this._announceBetTurnPlayer({ lobby, telegram });
         }
+    }
+
+    getBetInlineQueryOptions() {
+        const betValues = this._getValidBetValues();
+        const betOptions = betValues.map((val, idx) => ({
+            type: 'article',
+            id: idx,
+            title: `Bet ${val}`,
+            description: `Bet ${val}`,
+            thumb_url: '',
+            input_message_content: {
+                message_text: `/bet ${val}`,
+            },
+        }));
+
+        return betOptions;
     }
 
     _checkInvalidBetSum(newBet) {
