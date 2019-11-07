@@ -87,8 +87,7 @@ module.exports = class GameManager {
 
         const roundStartMsg =
             `*Round #${this.roundCount}.*\n`
-            + `${firstPlayer.first_name} shuffles the deck, draws a ${drawn.rank} of ${drawn.suit} from the top of the deck `
-            + `and deals ${this.cardsToDraw} card${this.cardsToDraw > 1 ? 's' : ''} for each player.\n`
+            + `${firstPlayer.first_name} deals ${this.cardsToDraw} card${this.cardsToDraw > 1 ? 's' : ''} for each player.\n`
             + `The trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`;
         await telegram.sendMessage(lobby.groupId, roundStartMsg, { parse_mode: 'markdown' });
     }
@@ -103,29 +102,24 @@ module.exports = class GameManager {
         await this._resolveRound(bets, roundScores, { lobby, telegram });
 
         // Checks if match has ended
-        // if (this.players.length <= 1) {
-        //     if (this.players.length === 1) {
-        //         let winner = this.players[0];
-        //         await telegram.sendMessage(lobby.groupId, `Game over.\n${winner.first_name} is the winner!`);
-        //     }
-        //     else {
-        //         await telegram.sendMessage(lobby.groupId, 'Game over.\nIt's a draw!');
-        //     }
+        if (this.players.length <= 1) {
+            if (this.players.length === 1) {
+                let winner = this.players[0];
+                await telegram.sendMessage(lobby.groupId, `Game over.\n${winner.first_name} is the winner!`);
+            }
+            else {
+                await telegram.sendMessage(lobby.groupId, `Game over.\nIt's a draw!`);
+            }
 
-        //     game.gameManager = null;
-        //     await scene.enter('greeter');
-        // }
-        // else {
-        //      this.players = reorderPlayers(this.players, this.players[1]);
-        //      this.roundCount += 1;
-        //      this._handleCardsToDrawIncrement();
-        //      await this.switchState(States.BET);
-        // }
-
-        this.players = reorderPlayers(this.players, this.players[1]);
-        this.roundCount += 1;
-        this._handleCardsToDrawIncrement();
-        await this.switchState(States.BET);
+            game.gameManager = null;
+            await scene.enter('greeter');
+        }
+        else {
+            this.players = reorderPlayers(this.players, this.players[1]);
+            this.roundCount += 1;
+            this._handleCardsToDrawIncrement();
+            await this.switchState(States.BET);
+        }
     }
 
     async _resolveRound(bets, roundScores, { lobby, telegram }) {

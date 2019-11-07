@@ -32,6 +32,11 @@ bot.context.game = {
 bot.use(session());
 bot.use(stage.middleware());
 
+bot.command('bets', (ctx) => {
+    if (ctx.game.betManager) {
+        ctx.game.betManager.listBets(ctx)
+    }
+});
 bot.on('inline_query', async (ctx) => {
     if (ctx.game.gameManager) {
         ctx.game.gameManager.getInlineQueryOptions(ctx);

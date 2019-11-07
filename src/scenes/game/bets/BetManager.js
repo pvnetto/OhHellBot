@@ -168,7 +168,7 @@ module.exports = class BetManager {
     }
 
     _getBetListMsg() {
-        if (Object.keys(this.bets).length === 0) 'No bets were placed this round.';
+        if (Object.keys(this.bets).length === 0) return 'No bets were placed this round.';
         let msg = 'Bets for this round:\n';
 
         Object.keys(this.bets).forEach(key => {

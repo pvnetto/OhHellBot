@@ -31,6 +31,8 @@ module.exports = class RoundManager {
         game.roundManager = this;
     }
 
+    get isLastTurnOfRound() { return this.hands[this.players[0].id].length <= 1; }
+
     async startTurn({ lobby, game, telegram, reply }) {
         this.turnCards = {};
         this._turnPlayerIdx = 0;
@@ -44,21 +46,23 @@ module.exports = class RoundManager {
     }
 
     async _sendTurnPlayerAnnounce({ lobby, telegram }) {
-        let nextPlayer = this.players[this._turnPlayerIdx];
-        await telegram.sendMessage(lobby.groupId, `It's [${nextPlayer.first_name}](tg://user?id=${nextPlayer.id})'s turn to play.`,
-            {
-                parse_mode: 'markdown',
-                reply_markup: {
-                    inline_keyboard: [[{ text: "Play a card", switch_inline_query_current_chat: '' }]],
-                    force_reply: false,
+        if (!this.isLastTurnOfRound) {
+            let nextPlayer = this.players[this._turnPlayerIdx];
+            await telegram.sendMessage(lobby.groupId, `It's [${nextPlayer.first_name}](tg://user?id=${nextPlayer.id})'s turn to play.`,
+                {
+                    parse_mode: 'markdown',
+                    reply_markup: {
+                        inline_keyboard: [[{ text: "Play a card", switch_inline_query_current_chat: '' }]],
+                        force_reply: false,
+                    }
                 }
-            }
-        );
+            );
+        }
     }
 
     async _handleAutoPlayLastCards({ lobby, game, telegram, reply }) {
         // Resolves the turn automatically if each player has only 1 card left
-        if (this.hands[this.players[0].id].length === 1) {
+        if (this.isLastTurnOfRound) {
             let turnPromises = this.players.map(async (player) => {
                 await this._placeCard(player, 0, { lobby, game, telegram, reply })
             });
@@ -81,9 +85,16 @@ module.exports = class RoundManager {
         if (!Number.isInteger(cardIdx)) return await reply('Please, choose a valid card.');
         if (cardIdx < 0 || cardIdx >= this.hands[cardPlayer.id].length) return await reply('Please, choose a valid card.');
 
+        if (this.isLastTurnOfRound) {
+            const card = this.hands[cardPlayer.id][cardIdx];
+            const cardSticker = await game.stickerManager.getStickerByCard(card, { telegram });
+            await telegram.sendMessage(lobby.groupId, `[${cardPlayer.first_name}](tg://user?id=${cardPlayer.id}) plays:`, { parse_mode: 'markdown' });
+            await telegram.sendSticker(lobby.groupId, cardSticker.file_id);
+        }
+
         // Removes card from player hand and places it on the pile of turn cards
-        let [cardPlayed] = this.hands[cardPlayer.id].splice(cardIdx, 1);
-        this.turnCards[cardPlayer.id] = cardPlayed;
+        let [playedCard] = this.hands[cardPlayer.id].splice(cardIdx, 1);
+        this.turnCards[cardPlayer.id] = playedCard;
 
         // Increments turn player index
         this._turnPlayerIdx += 1;
