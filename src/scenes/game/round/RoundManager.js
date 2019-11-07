@@ -135,11 +135,7 @@ module.exports = class RoundManager {
         const cardOptions = [];
         const cardPromises = playerCards.map(async (card, idx) => {
             const cardSticker = await game.stickerManager.getStickerByCard(card, { telegram });
-            cardOptions.push({
-                type: 'sticker',
-                id: idx,
-                sticker_file_id: cardSticker.file_id,
-            });
+            cardOptions.push({ type: 'sticker', id: idx, sticker_file_id: cardSticker.file_id, });
         });
         await Promise.all(cardPromises);
 

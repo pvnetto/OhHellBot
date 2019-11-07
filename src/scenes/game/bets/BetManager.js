@@ -43,7 +43,10 @@ module.exports = class BetManager {
             {
                 parse_mode: 'markdown',
                 reply_markup: {
-                    inline_keyboard: [[{ text: "Make your bet", switch_inline_query_current_chat: '' }]],
+                    inline_keyboard: [
+                        [{ text: "Make your bet", switch_inline_query_current_chat: '' }],
+                        [{ text: `Check your${this.roundCount === 1 ? ` opponent's ` : ' '}cards`, switch_inline_query_current_chat: 'check' }]
+                    ],
                     force_reply: false,
                 }
             }
@@ -57,6 +60,7 @@ module.exports = class BetManager {
     }
 
     async _placeBet(betPlayer, betValue, { lobby, game, telegram, reply }) {
+        // Checks if the bet is valid
         let turnPlayer = this.players[this.currentPlayerIdx];
         if (betPlayer.id != turnPlayer.id) return await reply(`It's not your turn to bet!`);
         if (!Number.isInteger(betValue)) return await reply('Please, enter a valid bet value.');
@@ -66,7 +70,6 @@ module.exports = class BetManager {
 
         this.bets[betPlayer.id] = betValue;
         this.currentPlayerIdx += 1;
-        await telegram.sendMessage(lobby.groupId, `${betPlayer.first_name} placed a bet of ${betValue}.`);
 
         // Checks if the bet round has ended
         if (this.currentPlayerIdx >= this.players.length) {
@@ -77,22 +80,6 @@ module.exports = class BetManager {
         else {
             await this._announceBetTurnPlayer({ lobby, telegram });
         }
-    }
-
-    getBetInlineQueryOptions() {
-        const betValues = this._getValidBetValues();
-        const betOptions = betValues.map((val, idx) => ({
-            type: 'article',
-            id: idx,
-            title: `Bet ${val}`,
-            description: `Bet ${val}`,
-            thumb_url: '',
-            input_message_content: {
-                message_text: `/bet ${val}`,
-            },
-        }));
-
-        return betOptions;
     }
 
     _checkInvalidBetSum(newBet) {
@@ -129,6 +116,50 @@ module.exports = class BetManager {
         if (currentSum > this.cardCount) return [];
 
         return [Math.abs(this.cardCount - currentSum)];
+    }
+
+    async getBetInlineQueryOptions(hands, { inlineQuery, game, telegram }) {
+        if (inlineQuery.query === 'check') {
+            return await this._inlineQueryCards(hands, { game, telegram });
+        }
+        else {
+            const betValues = this._getValidBetValues();
+            const betOptions = betValues.map((val, idx) => (this._makeQueryArticle(idx, `Bet ${val}`, `Bet ${val}`, '', `/bet ${val}`)));
+            betOptions.push(this._makeQueryArticle(betValues.length + 1, 'Show Bets', 'Show bets for this round', '', '/bets'));
+            return betOptions;
+        }
+    }
+
+    async _inlineQueryCards(hands, { game, telegram }) {
+        let queryCards = [];
+
+        // Shows opponent's cards on round 1
+        if (this.roundCount === 1) {
+            this.players.forEach((player) => {
+                Object.keys(hands).forEach(async (id) => {
+                    if (id != player.id) {
+                        const playerCard = hands[id][0];
+                        const cardSticker = await game.stickerManager.getStickerByCard(playerCard, { telegram });
+                        queryCards.push({ type: 'sticker', id: id, sticker_file_id: cardSticker.file_id, input_message_content: { message_text: `I'm trying to play a card because I'm stupid.` } });
+                    }
+                });
+            });
+        }
+        else {
+            this.players.forEach((player) => {
+                hands[player.id].forEach(async (playerCard, idx) => {
+                    const cardSticker = await game.stickerManager.getStickerByCard(playerCard, { telegram });
+                    const queryIdx = (idx + 1) * 100;
+                    queryCards.push({ type: 'sticker', id: queryIdx, sticker_file_id: cardSticker.file_id, input_message_content: { message_text: `I'm trying to play a card because I'm stupid.` } });
+                });
+            });
+        }
+
+        return queryCards;
+    }
+
+    _makeQueryArticle(id, title, description, thumb_url, message_text) {
+        return { type: 'article', id, title, description, thumb_url, input_message_content: { message_text } };
     }
 
     async listBets({ lobby, telegram }) {

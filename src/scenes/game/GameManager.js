@@ -35,9 +35,6 @@ module.exports = class GameManager {
 
         // Binding methods
         this.distributeCards.bind(this);
-        this._handleCardMessages.bind(this);
-        this._sendMessageWithOpponentCards.bind(this);
-        this._sendMessageWithPlayerCards.bind(this);
         this.endRound.bind(this);
         this._resolveRound.bind(this);
         this._handleCardsToDrawIncrement.bind(this);
@@ -61,20 +58,10 @@ module.exports = class GameManager {
         }
     }
 
-    async getInlineQueryOptions({ from, game, telegram, answerInlineQuery }) {
-        let queryOptions = [{
-            type: 'article',
-            id: 0,
-            title: `Wait...`,
-            description: ``,
-            thumb_url: '',
-            input_message_content: {
-                message_text: `It's not your turn to play.`,
-            },
-        }];
-
+    async getInlineQueryOptions({ from, inlineQuery, game, telegram, answerInlineQuery }) {
+        let queryOptions = [];
         if (this._currentState === States.BET) {
-            queryOptions = game.betManager.getBetInlineQueryOptions();
+            queryOptions = await game.betManager.getBetInlineQueryOptions(this.hands, { inlineQuery, game, telegram });
         }
         else if (this._currentState === States.ROUND) {
             queryOptions = await game.roundManager.getPlayerInlineQueryOptions({ from, game, telegram });
@@ -95,7 +82,7 @@ module.exports = class GameManager {
             this.hands[player.id] = this.deck.drawCards(this.cardsToDraw);
         });
 
-        await this._handleCardMessages({ game, telegram });
+        // await this._handleCardMessages({ game, telegram });
         await this._sendCardSticker(lobby.groupId, this._currentTrump, { game, telegram });
 
         const roundStartMsg =
@@ -104,48 +91,6 @@ module.exports = class GameManager {
             + `and deals ${this.cardsToDraw} card${this.cardsToDraw > 1 ? 's' : ''} for each player.\n`
             + `The trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`;
         await telegram.sendMessage(lobby.groupId, roundStartMsg, { parse_mode: 'markdown' });
-    }
-
-    async _handleCardMessages({ game, telegram }) {
-        if (this.roundCount === 1) {
-            await this._sendMessageWithOpponentCards({ game, telegram });
-        }
-        else {
-            await this._sendMessageWithPlayerCards({ game, telegram });
-        }
-    }
-
-    async _sendMessageWithPlayerCards({ game, telegram }) {
-        let msgPromises = this.players.map(async (player) => {
-            await telegram.sendMessage(player.id, "Your cards for this turn: \n");
-
-            let photoPromises = this.hands[player.id].map(async (playerCard) => {
-                await this._sendCardSticker(player.id, playerCard, { game, telegram });
-            });
-            await Promise.all(photoPromises);
-        });
-
-        await Promise.all(msgPromises);
-    }
-
-    async _sendMessageWithOpponentCards({ game, telegram }) {
-        if (this.roundCount === 1) {
-            let msgPromises = this.players.map(async (player) => {
-                await telegram.sendMessage(player.id, "Your opponents cards for this turn: \n");
-
-                let photoPromises = Object.keys(this.hands).map(async (id) => {
-                    if (id != player.id) {
-                        let opponentCard = this.hands[id][0];
-                        let opponent = this.players.find(opponent => opponent.id == id);
-                        await this._sendCardSticker(player.id, opponentCard, { game, telegram });
-                        await telegram.sendMessage(player.id, `${opponent.first_name}'s card`, { parse_mode: 'markdown' });
-                    }
-                });
-                await Promise.all(photoPromises);
-            });
-
-            await Promise.all(msgPromises);
-        }
     }
 
     async _sendCardSticker(id, card, { game, telegram }) {
