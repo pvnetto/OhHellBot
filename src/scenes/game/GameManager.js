@@ -4,11 +4,11 @@ const { States } = require('./states');
 
 module.exports = class GameManager {
 
-    constructor({ lobby, scene }) {
+    constructor({ session, scene }) {
         // Match parameters
-        this.players = [...lobby.players];
+        this.players = [...session.lobby.players];
         this.startPlayers = [...this.players];
-        this.owner = Object.assign({}, lobby.owner);
+        this.owner = Object.assign({}, session.lobby.owner);
         this.scene = scene;
         this._currentState = States.DRAW;
 
@@ -58,19 +58,19 @@ module.exports = class GameManager {
         }
     }
 
-    async getInlineQueryOptions({ from, inlineQuery, game, telegram, answerInlineQuery }) {
+    async getInlineQueryOptions({ from, inlineQuery, session, telegram, answerInlineQuery }) {
         let queryOptions = [];
         if (this._currentState === States.BET) {
-            queryOptions = await game.betManager.getBetInlineQueryOptions(this.hands, { inlineQuery, game, telegram });
+            queryOptions = await session.game.betManager.getBetInlineQueryOptions(this.hands, { inlineQuery, session, telegram });
         }
         else if (this._currentState === States.ROUND) {
-            queryOptions = await game.roundManager.getPlayerInlineQueryOptions({ from, game, telegram });
+            queryOptions = await session.game.roundManager.getPlayerInlineQueryOptions({ from, session, telegram });
         }
 
         return await answerInlineQuery(queryOptions, { cache_time: 0 });
     }
 
-    async distributeCards({ lobby, game, telegram }) {
+    async distributeCards({ session, telegram }) {
         let firstPlayer = this.players[0];
 
         this.deck.reset();
@@ -82,37 +82,36 @@ module.exports = class GameManager {
             this.hands[player.id] = this.deck.drawCards(this.cardsToDraw);
         });
 
-        // await this._handleCardMessages({ game, telegram });
-        await this._sendCardSticker(lobby.groupId, this._currentTrump, { game, telegram });
+        await this._sendCardSticker(session.lobby.groupId, this._currentTrump, { session, telegram });
 
         const roundStartMsg =
             `*Round #${this.roundCount}.*\n`
             + `${firstPlayer.first_name} deals ${this.cardsToDraw} card${this.cardsToDraw > 1 ? 's' : ''} for each player.\n`
             + `The trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`;
-        await telegram.sendMessage(lobby.groupId, roundStartMsg, { parse_mode: 'markdown' });
+        await telegram.sendMessage(session.lobby.groupId, roundStartMsg, { parse_mode: 'markdown' });
     }
 
-    async _sendCardSticker(id, card, { game, telegram }) {
-        const cardSticker = await game.stickerManager.getStickerByCard(card, { telegram });
+    async _sendCardSticker(id, card, { session, telegram }) {
+        const cardSticker = await session.game.stickerManager.getStickerByCard(card, { telegram });
         await telegram.sendSticker(id, cardSticker.file_id);
     }
 
-    async endRound(bets, roundScores, { scene, lobby, game, telegram }) {
+    async endRound(bets, roundScores, { session, telegram }) {
 
-        await this._resolveRound(bets, roundScores, { lobby, telegram });
+        await this._resolveRound(bets, roundScores, { session, telegram });
 
         // Checks if match has ended
         if (this.players.length <= 1) {
             if (this.players.length === 1) {
                 let winner = this.players[0];
-                await telegram.sendMessage(lobby.groupId, `Game over.\n${winner.first_name} is the winner!`);
+                await telegram.sendMessage(session.lobby.groupId, `Game over.\n${winner.first_name} is the winner!`);
             }
             else {
-                await telegram.sendMessage(lobby.groupId, `Game over.\nIt's a draw!`);
+                await telegram.sendMessage(session.lobby.groupId, `Game over.\nIt's a draw!`);
             }
 
-            game.gameManager = null;
-            await scene.enter('greeter');
+            session.game.gameManager = null;
+            await this.scene.enter('greeter');
         }
         else {
             this.players = reorderPlayers(this.players, this.players[1]);
@@ -122,7 +121,7 @@ module.exports = class GameManager {
         }
     }
 
-    async _resolveRound(bets, roundScores, { lobby, telegram }) {
+    async _resolveRound(bets, roundScores, { session, telegram }) {
         let roundMsg = `*End of round #${this.roundCount}*\n`;
         this.startPlayers.forEach((currentPlayer) => {
             if (this.players.includes(currentPlayer)) {
@@ -145,7 +144,7 @@ module.exports = class GameManager {
             }
         });
 
-        await telegram.sendMessage(lobby.groupId, roundMsg, { parse_mode: 'markdown' });
+        await telegram.sendMessage(session.lobby.groupId, roundMsg, { parse_mode: 'markdown' });
     }
 
     _handleCardsToDrawIncrement() {

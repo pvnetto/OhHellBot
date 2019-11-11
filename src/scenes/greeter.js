@@ -1,4 +1,5 @@
 const Scene = require('telegraf/scenes/base');
+const CardStickerManager = require('./game/cards/CardStickerManager');
 
 // Works as a pre-lobby manager.
 const greetMsg = 'Add this bot to a group to play Fodinha.\n/new: Creates a new match.\n/join: Joins the match.\n/start: Starts the match.';
@@ -11,16 +12,18 @@ greeter.command('start', ({ chat, reply }) => {
     }
 });
 
-greeter.command('new', ({ from, chat, scene, reply, lobby }) => {
+greeter.command('new', ({ from, chat, scene, reply, session }) => {
     if (chat.type === 'group') {
-        lobby.owner = from;
-        lobby.groupId = chat.id;
+        session.lobby = { owner: from, groupId: chat.id, }
+        session.game = { stickerManager: new CardStickerManager(), };
         scene.enter('lobby');
     }
     else {
         reply('To start a new match, you need to add this bot to a group.');
     }
 });
+
+greeter.command('join', (ctx) => ctx.reply(`There's no active lobby.`));
 
 greeter.help(({ chat, reply }) => {
     if (chat.type === 'group') {

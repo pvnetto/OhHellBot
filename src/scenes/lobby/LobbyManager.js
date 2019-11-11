@@ -2,13 +2,14 @@ const Extra = require('telegraf/extra');
 const Markup = require('telegraf/markup');
 
 module.exports = class LobbyManager {
-    constructor({ lobby, from, reply }) {
-        this.players = [lobby.owner];
-        this.owner = lobby.owner;
+    constructor({ db, session, reply }) {
+        this.players = [];
+        this.owner = session.lobby.owner;
         this.maxPlayers = 7;
-        this.minPlayers = 2;
+        this.minPlayers = 1;
 
         // TODO: Move to ES6 and use arrow functions
+        this._init.bind(this);
         this.addPlayer.bind(this);
         this.removePlayer.bind(this);
         this.listPlayers.bind(this);
@@ -17,30 +18,45 @@ module.exports = class LobbyManager {
         this._isLobbyFull.bind(this);
         this._isMatchReady.bind(this);
 
-        reply(`${from.first_name} created a Fodinha match. Send /join to join the match or /start to start it.`, Extra.HTML().markup((m) => (
+        this._init({ db, reply });
+    }
+
+    _init({ db, reply }) {
+        reply(`${this.owner.first_name} created a Fodinha match. Send /join to join the match or /start to start it.`, Extra.HTML().markup((m) => (
             m.inlineKeyboard([
                 m.callbackButton('Join', 'join'),
             ])
         )));
+
+        this.addPlayer(this.owner, { db, reply }, { showAlert: false });
     }
 
-    addPlayer(newPlayer, { telegram, reply }) {
+    addPlayer(newPlayer, { db, reply }, options = { showAlert: true }) {
         if (this._isLobbyFull()) {
             reply('This match is already full!');
         }
-        else if (!this._isPlayerInLobby(newPlayer)) {
+        else if (this._isPlayerInLobby(newPlayer)) {
+            reply(`${newPlayer.first_name} is already in this lobby.`)
+        }
+        else if (this._isPlayerInAnotherLobby(newPlayer, { db })) {
+            reply(`${newPlayer.first_name} is already in another lobby.`)
+        }
+        else {
             this.players.push(newPlayer);
-            reply(`${newPlayer.first_name} joined the match!`);
-            telegram.sendMessage(newPlayer.id, "You just joined a game of Fodinha!");
+            db[newPlayer.id] = {};
 
-            this.listPlayers({ reply });
+            if (options.showAlert) {
+                reply(`${newPlayer.first_name} joined the match!`);
+                this.listPlayers({ reply });
+            }
         }
     }
 
-    removePlayer(lobbyPlayer, { reply }) {
+    removePlayer(lobbyPlayer, { db, reply }) {
         if (this._isPlayerInLobby(lobbyPlayer)) {
             let playerIdx = this.players.findIndex(player => player.id === lobbyPlayer.id);
             this.players.splice(playerIdx, 1);
+            delete db[lobbyPlayer.id];
 
             reply(`${lobbyPlayer.first_name} left the lobby!`);
             this.listPlayers({ reply });
@@ -52,25 +68,29 @@ module.exports = class LobbyManager {
             reply('The lobby is empty.');
         }
         else {
-            const numInLobby = players.length;
+            const numInLobby = this.players.length;
             let listedPlayers = `Players in lobby: ${numInLobby}/${this.maxPlayers}\n`;
             this.players.forEach((player, idx) => listedPlayers += `${idx} - ${player.first_name}\n`);
             reply(listedPlayers);
         }
     }
 
-    startMatch(ctx) {
+    startMatch({ scene, session }) {
         if (this._isMatchReady()) {
-            ctx.lobby.players = this.players;
-            ctx.scene.enter('game');
+            session.lobby.players = this.players;
+            scene.enter('game');
         }
         else {
-            ctx.reply(`You need at least ${this.minPlayers} players to start a match.`)
+            reply(`You need at least ${this.minPlayers} players to start a match.`)
         }
     }
 
     _isPlayerInLobby(lobbyPlayer) {
         return this.players.findIndex(player => player.id === lobbyPlayer.id) != -1;
+    }
+
+    _isPlayerInAnotherLobby(lobbyPlayer, { db }) {
+        return Object.keys(db).includes(lobbyPlayer.id);
     }
 
     _isMatchReady() {

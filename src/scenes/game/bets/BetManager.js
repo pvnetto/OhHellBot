@@ -4,10 +4,10 @@ const { States } = require('../states');
 
 module.exports = class BetManager {
 
-    constructor({ game }) {
-        this.players = [...game.gameManager.players];
-        this.roundCount = game.gameManager.roundCount;
-        this.cardCount = game.gameManager.cardsToDraw;
+    constructor({ session }) {
+        this.players = [...session.game.gameManager.players];
+        this.roundCount = session.game.gameManager.roundCount;
+        this.cardCount = session.game.gameManager.cardsToDraw;
 
         // Bet variables
         this.bets = {};
@@ -21,25 +21,23 @@ module.exports = class BetManager {
         this._getValidBetValues.bind(this);
         this._getInvalidBetValues.bind(this);
         this.listBets.bind(this);
-
-        game.betManager = this;
     }
 
     get isFirstRound() { return this.roundCount === 1; }
 
-    async beginBetPhase({ lobby, telegram }) {
+    async beginBetPhase({ session, telegram }) {
         if (!this.isFirstRound) {
             this.players = reorderPlayers(this.players, this.players[1]);
         }
 
         const betOrderMsg = this._getBetOrderMsg();
-        await telegram.sendMessage(lobby.groupId, `\n*Beginning the bet round.*\n${betOrderMsg}`, { parse_mode: 'markdown' });
-        await this._announceBetTurnPlayer({ lobby, telegram });
+        await telegram.sendMessage(session.lobby.groupId, `\n*Beginning the bet round.*\n${betOrderMsg}`, { parse_mode: 'markdown' });
+        await this._announceBetTurnPlayer({ session, telegram });
     }
 
-    async _announceBetTurnPlayer({ lobby, telegram }) {
+    async _announceBetTurnPlayer({ session, telegram }) {
         const currentPlayer = this.players[this.currentPlayerIdx];
-        await telegram.sendMessage(lobby.groupId, `It's [${currentPlayer.first_name}](tg://user?id=${currentPlayer.id})'s turn to bet.`,
+        await telegram.sendMessage(session.lobby.groupId, `It's [${currentPlayer.first_name}](tg://user?id=${currentPlayer.id})'s turn to bet.`,
             {
                 parse_mode: 'markdown',
                 reply_markup: {
@@ -53,13 +51,13 @@ module.exports = class BetManager {
         );
     }
 
-    async bet({ from, message, lobby, game, telegram, reply }) {
+    async bet({ from, message, session, telegram, reply }) {
         let betValue = message.text.split(' ').slice(1).join('');
         betValue = parseInt(betValue);
-        await this._placeBet(from, betValue, { lobby, game, telegram, reply });
+        await this._placeBet(from, betValue, { session, telegram, reply });
     }
 
-    async _placeBet(betPlayer, betValue, { lobby, game, telegram, reply }) {
+    async _placeBet(betPlayer, betValue, { session, telegram, reply }) {
         // Checks if the bet is valid
         let turnPlayer = this.players[this.currentPlayerIdx];
         if (betPlayer.id != turnPlayer.id) return await reply(`It's not your turn to bet!`);
@@ -74,11 +72,11 @@ module.exports = class BetManager {
         // Checks if the bet round has ended
         if (this.currentPlayerIdx >= this.players.length) {
             const betListMsg = this._getBetListMsg();
-            await telegram.sendMessage(lobby.groupId, `*Bet round ended.*\n${betListMsg}`, { parse_mode: 'markdown' });
-            await game.gameManager.switchState(States.ROUND);
+            await telegram.sendMessage(session.lobby.groupId, `*Bet round ended.*\n${betListMsg}`, { parse_mode: 'markdown' });
+            await session.game.gameManager.switchState(States.ROUND);
         }
         else {
-            await this._announceBetTurnPlayer({ lobby, telegram });
+            await this._announceBetTurnPlayer({ session, telegram });
         }
     }
 
@@ -118,9 +116,9 @@ module.exports = class BetManager {
         return [Math.abs(this.cardCount - currentSum)];
     }
 
-    async getBetInlineQueryOptions(hands, { inlineQuery, game, telegram }) {
+    async getBetInlineQueryOptions(hands, { inlineQuery, session, telegram }) {
         if (inlineQuery.query === 'check') {
-            return await this._inlineQueryCards(hands, { game, telegram });
+            return await this._inlineQueryCards(hands, { session, telegram });
         }
         else {
             const betValues = this._getValidBetValues();
@@ -130,7 +128,7 @@ module.exports = class BetManager {
         }
     }
 
-    async _inlineQueryCards(hands, { game, telegram }) {
+    async _inlineQueryCards(hands, { session, telegram }) {
         let queryCards = [];
 
         // Shows opponent's cards on round 1
@@ -139,7 +137,7 @@ module.exports = class BetManager {
                 Object.keys(hands).forEach(async (id) => {
                     if (id != player.id) {
                         const playerCard = hands[id][0];
-                        const cardSticker = await game.stickerManager.getStickerByCard(playerCard, { telegram });
+                        const cardSticker = await session.game.stickerManager.getStickerByCard(playerCard, { telegram });
                         queryCards.push({ type: 'sticker', id: id, sticker_file_id: cardSticker.file_id, input_message_content: { message_text: `I'm trying to play a card because I'm stupid.` } });
                     }
                 });
@@ -148,7 +146,7 @@ module.exports = class BetManager {
         else {
             this.players.forEach((player) => {
                 hands[player.id].forEach(async (playerCard, idx) => {
-                    const cardSticker = await game.stickerManager.getStickerByCard(playerCard, { telegram });
+                    const cardSticker = await session.game.stickerManager.getStickerByCard(playerCard, { telegram });
                     const queryIdx = (idx + 1) * 100;
                     queryCards.push({ type: 'sticker', id: queryIdx, sticker_file_id: cardSticker.file_id, input_message_content: { message_text: `I'm trying to play a card because I'm stupid.` } });
                 });
@@ -162,9 +160,9 @@ module.exports = class BetManager {
         return { type: 'article', id, title, description, thumb_url, input_message_content: { message_text } };
     }
 
-    async listBets({ lobby, telegram }) {
+    async listBets({ session, telegram }) {
         let msg = this._getBetListMsg();
-        await telegram.sendMessage(lobby.groupId, msg);
+        await telegram.sendMessage(session.lobby.groupId, msg);
     }
 
     _getBetListMsg() {
@@ -182,7 +180,7 @@ module.exports = class BetManager {
 
     _getBetOrderMsg() {
         let msg = `Bet order:\n`;
-        this.players.forEach((player, idx) => msg += `${idx} - ${player.first_name}`);
+        this.players.forEach((player, idx) => msg += `${idx} - ${player.first_name}\n`);
 
         return msg;
     }
