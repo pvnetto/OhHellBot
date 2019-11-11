@@ -115,6 +115,8 @@ module.exports = class GameManager {
 
             // Removes match players from db
             this.startPlayers.forEach(player => db[player.id] && delete db[player.id]);
+            session.lobby = {};
+            session.game = {};
             await this.scene.enter('greeter');
         }
         else {

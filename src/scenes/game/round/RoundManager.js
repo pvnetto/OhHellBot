@@ -107,7 +107,7 @@ module.exports = class RoundManager {
                 await session.game.gameManager.endRound(session.game.betManager.bets, this.roundScores, { db, session, telegram });
             }
             else {
-                await this.startTurn({ db, session, telegram, reply });
+                await this.startTurn({ stickerManager, db, session, telegram, reply });
             }
         }
         else {

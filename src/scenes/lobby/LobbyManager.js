@@ -6,7 +6,7 @@ module.exports = class LobbyManager {
         this.players = [];
         this.owner = session.lobby.owner;
         this.maxPlayers = 7;
-        this.minPlayers = 1;
+        this.minPlayers = 2;
 
         // TODO: Move to ES6 and use arrow functions
         this._init.bind(this);
@@ -75,7 +75,7 @@ module.exports = class LobbyManager {
         }
     }
 
-    startMatch({ scene, session }) {
+    startMatch({ scene, session, reply }) {
         if (this._isMatchReady()) {
             session.lobby.players = this.players;
             scene.enter('game');

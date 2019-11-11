@@ -6,8 +6,6 @@ const groupHelp = 'Send /new to create a new match.'
 
 const greeter = new Scene('greeter');
 
-greeter.enter((ctx) => ctx.session = {});
-
 greeter.command('start', ({ chat, reply }) => {
     if (chat.type === 'private') {
         reply(greetMsg);
