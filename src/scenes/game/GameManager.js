@@ -4,13 +4,16 @@ const { States } = require('./states');
 
 module.exports = class GameManager {
 
-    constructor({ session, scene }) {
+    constructor({ db, session, scene }) {
         // Match parameters
         this.players = [...session.lobby.players];
         this.startPlayers = [...this.players];
         this.owner = Object.assign({}, session.lobby.owner);
         this.scene = scene;
         this._currentState = States.DRAW;
+
+        // Adds a reference for this to each player
+        this.players.forEach(player => db[player.id].gameManager = this);
 
         // Picks a random player to be the first to shuffle/play
         let startingPlayerIdx = Math.floor(Math.random() * this.players.length);
@@ -58,19 +61,19 @@ module.exports = class GameManager {
         }
     }
 
-    async getInlineQueryOptions({ from, inlineQuery, session, telegram, answerInlineQuery }) {
-        let queryOptions = [];
-        if (this._currentState === States.BET) {
-            queryOptions = await session.game.betManager.getBetInlineQueryOptions(this.hands, { inlineQuery, session, telegram });
-        }
-        else if (this._currentState === States.ROUND) {
-            queryOptions = await session.game.roundManager.getPlayerInlineQueryOptions({ from, session, telegram });
-        }
+    async getInlineQueryOptions({ stickerManager, from, inlineQuery, db, telegram }) {
+        const userDb = db[from.id];
 
-        return await answerInlineQuery(queryOptions, { cache_time: 0 });
+        if (this._currentState === States.BET && userDb.betManager) {
+            return await userDb.betManager.getBetInlineQueryOptions(this.hands, { stickerManager, from, inlineQuery, telegram });
+        }
+        else if (this._currentState === States.ROUND && userDb.roundManager) {
+            return await userDb.roundManager.getPlayerInlineQueryOptions({ stickerManager, from, telegram });
+        }
+        return [];
     }
 
-    async distributeCards({ session, telegram }) {
+    async distributeCards({ stickerManager, session, telegram }) {
         let firstPlayer = this.players[0];
 
         this.deck.reset();
@@ -82,7 +85,7 @@ module.exports = class GameManager {
             this.hands[player.id] = this.deck.drawCards(this.cardsToDraw);
         });
 
-        await this._sendCardSticker(session.lobby.groupId, this._currentTrump, { session, telegram });
+        await this._sendCardSticker(session.lobby.groupId, this._currentTrump, { stickerManager, telegram });
 
         const roundStartMsg =
             `*Round #${this.roundCount}.*\n`
@@ -91,12 +94,12 @@ module.exports = class GameManager {
         await telegram.sendMessage(session.lobby.groupId, roundStartMsg, { parse_mode: 'markdown' });
     }
 
-    async _sendCardSticker(id, card, { session, telegram }) {
-        const cardSticker = await session.game.stickerManager.getStickerByCard(card, { telegram });
+    async _sendCardSticker(id, card, { stickerManager, telegram }) {
+        const cardSticker = await stickerManager.getStickerByCard(card, { telegram });
         await telegram.sendSticker(id, cardSticker.file_id);
     }
 
-    async endRound(bets, roundScores, { session, telegram }) {
+    async endRound(bets, roundScores, { db, session, telegram }) {
 
         await this._resolveRound(bets, roundScores, { session, telegram });
 
@@ -110,7 +113,8 @@ module.exports = class GameManager {
                 await telegram.sendMessage(session.lobby.groupId, `Game over.\nIt's a draw!`);
             }
 
-            session.game.gameManager = null;
+            // Removes match players from db
+            this.startPlayers.forEach(player => db[player.id] && delete db[player.id]);
             await this.scene.enter('greeter');
         }
         else {

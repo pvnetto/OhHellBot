@@ -3,15 +3,11 @@ const BetManager = require('./BetManager');
 
 const bets = new Scene('bets');
 
-bets.enter(async ({ db, session, telegram }) => {
-    await session.game.gameManager.distributeCards({ session, telegram });
+bets.enter(async ({ stickerManager, db, session, telegram }) => {
+    await session.game.gameManager.distributeCards({ stickerManager, session, telegram });
 
-    const betManager = new BetManager({ session });
+    const betManager = new BetManager({ db, session });
     session.game.betManager = betManager;
-
-    db[session.lobby.owner.id] = {
-        betManager,
-    }
 
     await betManager.beginBetPhase({ session, telegram });
 });

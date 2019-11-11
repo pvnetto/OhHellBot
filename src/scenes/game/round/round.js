@@ -3,11 +3,10 @@ const RoundManager = require('./RoundManager');
 
 const round = new Scene('round');
 
-round.enter(async ({ session, telegram, reply }) => {
-    const roundManager = new RoundManager({ session });
-    session.game.roundManager = roundManager;
-
-    await roundManager.startTurn({ session, telegram, reply });
+round.enter(async (ctx) => {
+    const roundManager = new RoundManager(ctx);
+    ctx.session.game.roundManager = roundManager;
+    await roundManager.startTurn(ctx);
 });
 
 round.command('play', (ctx) => ctx.session.game.roundManager.playCard(ctx));

@@ -12,6 +12,8 @@ const game = require('./scenes/game');
 const bets = require('./scenes/game/bets');
 const round = require('./scenes/game/round');
 
+const CardStickerManager = require('./scenes/game/cards/CardStickerManager');
+
 // Setting up the stage
 const stage = new Stage([greeter, lobby, game, bets, round], { default: 'greeter' });
 
@@ -23,6 +25,7 @@ bot.telegram.getMe().then((botInfo) => {
 });
 
 bot.context.db = {};
+bot.context.stickerManager = new CardStickerManager();
 
 bot.use(session({
     getSessionKey: (ctx) => {
@@ -36,24 +39,24 @@ bot.use(session({
 bot.use(stage.middleware());
 
 bot.command('bets', (ctx) => {
-    if (ctx.game.betManager) {
-        ctx.game.betManager.listBets(ctx)
+    if (ctx.session && ctx.session.game && ctx.session.game.betManager) {
+        ctx.session.game.betManager.listBets(ctx);
     }
 });
 
 bot.command('check', (ctx) => {
     console.log(`Showing stats for ${ctx.from.first_name}:`);
-    // console.log(ctx.session);
     console.log(ctx.db);
 });
 
 bot.on('inline_query', async (ctx) => {
-    console.log("querying");
-    console.log(ctx.db);
+    let queryOptions = [];
+    const userDb = ctx.db[ctx.from.id];
+    if (userDb && userDb.gameManager) {
+        queryOptions = await userDb.gameManager.getInlineQueryOptions(ctx);
+    }
 
-    // if (ctx.game.gameManager) {
-    //     ctx.game.gameManager.getInlineQueryOptions(ctx);
-    // }
+    return await ctx.answerInlineQuery(queryOptions, { cache_time: 0 });
 });
 
 bot.launch();

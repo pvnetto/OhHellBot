@@ -4,8 +4,8 @@ const { States } = require('./states');
 
 const game = new Scene('game');
 
-game.enter(async ({ session, scene, reply }) => {
-    const gameManager = new GameManager({ session, scene })
+game.enter(async ({ db, session, scene, reply }) => {
+    const gameManager = new GameManager({ db, session, scene })
     session.game.gameManager = gameManager;
 
     await reply('The game has begun!');

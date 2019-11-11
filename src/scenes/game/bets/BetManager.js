@@ -4,10 +4,13 @@ const { States } = require('../states');
 
 module.exports = class BetManager {
 
-    constructor({ session }) {
+    constructor({ db, session }) {
         this.players = [...session.game.gameManager.players];
         this.roundCount = session.game.gameManager.roundCount;
         this.cardCount = session.game.gameManager.cardsToDraw;
+
+        // Adds a reference to this for each player
+        this.players.forEach(player => db[player.id].betManager = this);
 
         // Bet variables
         this.bets = {};
@@ -116,40 +119,40 @@ module.exports = class BetManager {
         return [Math.abs(this.cardCount - currentSum)];
     }
 
-    async getBetInlineQueryOptions(hands, { inlineQuery, session, telegram }) {
+    async getBetInlineQueryOptions(hands, { stickerManager, from, inlineQuery, telegram }) {
         if (inlineQuery.query === 'check') {
-            return await this._inlineQueryCards(hands, { session, telegram });
+            return await this._inlineQueryCards(hands, { stickerManager, from, telegram });
         }
         else {
-            const betValues = this._getValidBetValues();
-            const betOptions = betValues.map((val, idx) => (this._makeQueryArticle(idx, `Bet ${val}`, `Bet ${val}`, '', `/bet ${val}`)));
-            betOptions.push(this._makeQueryArticle(betValues.length + 1, 'Show Bets', 'Show bets for this round', '', '/bets'));
-            return betOptions;
+            return this._inlineQueryBetOptions();
         }
     }
 
-    async _inlineQueryCards(hands, { session, telegram }) {
+    _inlineQueryBetOptions() {
+        const betValues = this._getValidBetValues();
+        const betOptions = betValues.map((val, idx) => (this._makeQueryArticle(idx, `Bet ${val}`, `Bet ${val}`, '', `/bet ${val}`)));
+        betOptions.push(this._makeQueryArticle(betValues.length + 1, 'Show Bets', 'Show bets for this round', '', '/bets'));
+        return betOptions;
+    }
+
+    async _inlineQueryCards(hands, { stickerManager, from, telegram }) {
         let queryCards = [];
 
-        // Shows opponent's cards on round 1
+        // Shows opponent's cards on round 1, that is, the first card of each hand, except for the player's own hand
         if (this.roundCount === 1) {
-            this.players.forEach((player) => {
-                Object.keys(hands).forEach(async (id) => {
-                    if (id != player.id) {
-                        const playerCard = hands[id][0];
-                        const cardSticker = await session.game.stickerManager.getStickerByCard(playerCard, { telegram });
-                        queryCards.push({ type: 'sticker', id: id, sticker_file_id: cardSticker.file_id, input_message_content: { message_text: `I'm trying to play a card because I'm stupid.` } });
-                    }
-                });
+            Object.keys(hands).forEach(async (handId) => {
+                if (from.id != handId) {
+                    const playerCard = hands[handId][0];
+                    const cardSticker = await stickerManager.getStickerByCard(playerCard, { telegram });
+                    queryCards.push({ type: 'sticker', id: handId, sticker_file_id: cardSticker.file_id, input_message_content: { message_text: `It's not my turn to play a card.` } });
+                }
             });
         }
         else {
-            this.players.forEach((player) => {
-                hands[player.id].forEach(async (playerCard, idx) => {
-                    const cardSticker = await session.game.stickerManager.getStickerByCard(playerCard, { telegram });
-                    const queryIdx = (idx + 1) * 100;
-                    queryCards.push({ type: 'sticker', id: queryIdx, sticker_file_id: cardSticker.file_id, input_message_content: { message_text: `I'm trying to play a card because I'm stupid.` } });
-                });
+            hands[from.id].forEach(async (playerCard, idx) => {
+                const cardSticker = await stickerManager.getStickerByCard(playerCard, { telegram });
+                const queryIdx = (idx + 1) * 100;
+                queryCards.push({ type: 'sticker', id: queryIdx, sticker_file_id: cardSticker.file_id, input_message_content: { message_text: `It's not my turn to play a card.` } });
             });
         }
 

@@ -4,9 +4,12 @@ const { evaluateCards } = require('../cards/evaluator');
 
 module.exports = class RoundManager {
 
-    constructor({ session }) {
+    constructor({ db, session }) {
         this.players = [...session.game.gameManager.players];
         this.cardDealer = this.players[0];
+
+        // Adds a reference to this in DB for each player
+        this.players.forEach(player => db[player.id].roundManager = this);
 
         // The closest player to the card server starts playing, except for the first round
         if (session.game.gameManager.roundCount !== 1) {
@@ -31,7 +34,7 @@ module.exports = class RoundManager {
 
     get isLastTurnOfRound() { return this.hands[this.players[0].id].length <= 1; }
 
-    async startTurn({ session, telegram, reply }) {
+    async startTurn({ stickerManager, db, session, telegram, reply }) {
         this.turnCards = {};
         this._turnPlayerIdx = 0;
 
@@ -40,7 +43,7 @@ module.exports = class RoundManager {
         await this._sendTurnPlayerAnnounce({ session, telegram });
 
         // Resolves the turn automatically if each player has only 1 card left
-        await this._handleAutoPlayLastCards({ session, telegram, reply });
+        await this._handleAutoPlayLastCards({ stickerManager, db, session, telegram, reply });
     }
 
     async _sendTurnPlayerAnnounce({ session, telegram }) {
@@ -58,26 +61,26 @@ module.exports = class RoundManager {
         }
     }
 
-    async _handleAutoPlayLastCards({ session, telegram, reply }) {
+    async _handleAutoPlayLastCards({ stickerManager, db, session, telegram, reply }) {
         // Resolves the turn automatically if each player has only 1 card left
         if (this.isLastTurnOfRound) {
             let turnPromises = this.players.map(async (player) => {
-                await this._placeCard(player, 0, { session, telegram, reply })
+                await this._placeCard(player, 0, { stickerManager, db, session, telegram, reply })
             });
 
             return await Promise.all(turnPromises);
         }
     }
 
-    async playCard({ from, message, session, telegram, reply }) {
-        const card = await session.game.stickerManager.getCardBySticker(message.sticker, { telegram });
+    async playCard({ stickerManager, from, message, db, session, telegram, reply }) {
+        const card = await stickerManager.getCardBySticker(message.sticker, { telegram });
         if (card) {
             let cardIdx = this.hands[from.id].findIndex(playerCard => playerCard.suit === card.suit && playerCard.rank === card.rank);
-            return await this._placeCard(from, cardIdx, { session, telegram, reply });
+            return await this._placeCard(from, cardIdx, { stickerManager, db, session, telegram, reply });
         }
     }
 
-    async _placeCard(cardPlayer, cardIdx, { session, telegram, reply }) {
+    async _placeCard(cardPlayer, cardIdx, { stickerManager, db, session, telegram, reply }) {
         let turnPlayer = this.players[this._turnPlayerIdx];
         if (!turnPlayer || cardPlayer.id != turnPlayer.id) return await reply(`It's not your turn to play!`);
         if (!Number.isInteger(cardIdx)) return await reply('Please, choose a valid card.');
@@ -85,7 +88,7 @@ module.exports = class RoundManager {
 
         if (this.isLastTurnOfRound) {
             const card = this.hands[cardPlayer.id][cardIdx];
-            const cardSticker = await session.game.stickerManager.getStickerByCard(card, { telegram });
+            const cardSticker = await stickerManager.getStickerByCard(card, { telegram });
             await telegram.sendMessage(session.lobby.groupId, `[${cardPlayer.first_name}](tg://user?id=${cardPlayer.id}) plays:`, { parse_mode: 'markdown' });
             await telegram.sendSticker(session.lobby.groupId, cardSticker.file_id);
         }
@@ -101,10 +104,10 @@ module.exports = class RoundManager {
 
             let firstPlayerCards = this.hands[this.players[0].id];
             if (firstPlayerCards.length === 0) {
-                await session.game.gameManager.endRound(session.game.betManager.bets, this.roundScores, { session, telegram });
+                await session.game.gameManager.endRound(session.game.betManager.bets, this.roundScores, { db, session, telegram });
             }
             else {
-                await this.startTurn({ session, telegram, reply });
+                await this.startTurn({ db, session, telegram, reply });
             }
         }
         else {
@@ -137,13 +140,13 @@ module.exports = class RoundManager {
         await telegram.sendMessage(session.lobby.groupId, turnMsg, { parse_mode: 'markdown' });
     }
 
-    async getPlayerInlineQueryOptions({ from, session, telegram }) {
+    async getPlayerInlineQueryOptions({ stickerManager, from, telegram }) {
         if (this._currentRoundCount === 1) return [];
 
         const playerCards = this.hands[from.id];
         const cardOptions = [];
         const cardPromises = playerCards.map(async (card, idx) => {
-            const cardSticker = await session.game.stickerManager.getStickerByCard(card, { telegram });
+            const cardSticker = await stickerManager.getStickerByCard(card, { telegram });
             cardOptions.push({ type: 'sticker', id: idx, sticker_file_id: cardSticker.file_id, });
         });
         await Promise.all(cardPromises);
