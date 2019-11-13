@@ -1,12 +1,12 @@
 const Scene = require('telegraf/scenes/base');
-const BetManager = require('./BetManager');
+const BetsManager = require('../managers/bets');
 
 const bets = new Scene('bets');
 
 bets.enter(async ({ stickerManager, db, session, telegram }) => {
     await session.game.gameManager.distributeCards({ stickerManager, session, telegram });
 
-    const betManager = new BetManager({ db, session });
+    const betManager = new BetsManager({ db, session });
     session.game.betManager = betManager;
 
     await betManager.beginBetPhase({ session, telegram });

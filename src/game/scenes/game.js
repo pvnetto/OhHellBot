@@ -1,6 +1,6 @@
 const Scene = require('telegraf/scenes/base');
-const GameManager = require('./GameManager');
-const { States } = require('./states');
+const GameManager = require('../managers/game');
+const { States } = require('../managers/game/states');
 
 const game = new Scene('game');
 

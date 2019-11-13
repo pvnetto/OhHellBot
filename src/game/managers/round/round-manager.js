@@ -1,6 +1,5 @@
-const Extra = require('telegraf/extra');
 const { reorderPlayers } = require('../utils');
-const { evaluateCards } = require('../cards/evaluator');
+const { evaluateCards } = require('../../cards/evaluator');
 
 module.exports = class RoundManager {
 

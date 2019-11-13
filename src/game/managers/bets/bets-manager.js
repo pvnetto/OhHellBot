@@ -1,8 +1,7 @@
-const Extra = require('telegraf/extra');
 const { reorderPlayers } = require('../utils');
-const { States } = require('../states');
+const { States } = require('../game/states');
 
-module.exports = class BetManager {
+module.exports = class BetsManager {
 
     constructor({ db, session }) {
         this.players = [...session.game.gameManager.players];

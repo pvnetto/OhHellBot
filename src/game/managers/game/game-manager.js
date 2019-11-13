@@ -1,5 +1,5 @@
-const CardsDeck = require('./cards/CardsDeck');
-const { reorderPlayers } = require('./utils');
+const CardsDeck = require('../../cards/deck');
+const { reorderPlayers } = require('../utils');
 const { States } = require('./states');
 
 module.exports = class GameManager {

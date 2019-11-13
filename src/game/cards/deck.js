@@ -1,21 +1,14 @@
 const { Ranks, Suits } = require('./types');
+const { card } = require('./card');
 
 module.exports = class CardsDeck {
 
     constructor() {
-        this.deck = this._buildDeck();
+        this.deck = _buildDeck();
         this.maxDeckSize = Object.keys(Ranks).length * Object.keys(Suits).length;
     }
 
-    _buildDeck() {
-        let deck = [];
-        Object.keys(Ranks).forEach(rank => {
-            Object.keys(Suits).forEach(suit => {
-                deck.push({ rank, suit });
-            });
-        });
-        return deck;
-    };
+    get numOfCardsLeft() { return this.deck.length; }
 
     // Assumes Ranks are ordered from 1 to biggest
     drawTrumpCard() {
@@ -26,11 +19,10 @@ module.exports = class CardsDeck {
 
         return {
             drawn: drawnCard,
-            trump: { rank: trumpRank, suit: drawnCard.suit },
+            trump: card(trumpRank, drawnCard.suit),
         };
     }
 
-    // TODO: Move to deck
     drawCards(count) {
         let drawnCards = [];
 
@@ -39,6 +31,11 @@ module.exports = class CardsDeck {
         }
 
         return drawnCards;
+    }
+
+    drawCardByIndex(index) {
+        const drawnCard = this.deck.splice(index, 1);
+        return drawnCard;
     }
 
     shuffle() {
@@ -51,6 +48,17 @@ module.exports = class CardsDeck {
     }
 
     reset() {
-        this.deck = this._buildDeck();
+        this.deck = _buildDeck();
     }
 }
+
+function _buildDeck() {
+    let deck = [];
+    Object.keys(Ranks).forEach(rank => {
+        Object.keys(Suits).forEach(suit => {
+            deck.push(card(rank, suit));
+        });
+    });
+    return deck;
+};
+

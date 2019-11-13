@@ -21,6 +21,5 @@ const Suits = {
 Object.freeze(Ranks);
 Object.freeze(Suits);
 
-
 exports.Ranks = Ranks;
 exports.Suits = Suits;

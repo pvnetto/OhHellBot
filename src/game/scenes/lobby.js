@@ -1,5 +1,5 @@
 const Scene = require('telegraf/scenes/base');
-const LobbyManager = require('./LobbyManager');
+const LobbyManager = require('../managers/lobby');
 
 
 const lobby = new Scene('lobby');

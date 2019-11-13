@@ -1,5 +1,5 @@
 const Scene = require('telegraf/scenes/base');
-const RoundManager = require('./RoundManager');
+const RoundManager = require('../managers/round');
 
 const round = new Scene('round');
 

@@ -1,5 +1,4 @@
 const Extra = require('telegraf/extra');
-const Markup = require('telegraf/markup');
 
 module.exports = class LobbyManager {
     constructor({ db, session, reply }) {

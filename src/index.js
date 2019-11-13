@@ -5,14 +5,10 @@ const Stage = require('telegraf/stage');
 
 require('dotenv').config();
 
-const greeter = require('./scenes/greeter');
-const lobby = require('./scenes/lobby');
+// Importing scenes
+const { greeter, lobby, game, bets, round } = require('./game/scenes');
+const CardStickerManager = require('./game/cards/card-sticker-manager');
 
-const game = require('./scenes/game');
-const bets = require('./scenes/game/bets');
-const round = require('./scenes/game/round');
-
-const CardStickerManager = require('./scenes/game/cards/CardStickerManager');
 
 // Setting up the stage
 const stage = new Stage([greeter, lobby, game, bets, round], { default: 'greeter' });
