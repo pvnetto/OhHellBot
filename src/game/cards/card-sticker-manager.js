@@ -1,4 +1,5 @@
 const { Ranks, Suits } = require('./types');
+const { Card } = require('./card');
 
 module.exports = class CardStickerManager {
 
@@ -24,7 +25,7 @@ module.exports = class CardStickerManager {
                 const rank = rankKeys[j];
                 const currentStickerId = this.stickers[suit][rank].file_id;
                 if (stickerId == currentStickerId) {
-                    return { rank, suit };
+                    return new Card(rank, suit);
                 }
             }
         }

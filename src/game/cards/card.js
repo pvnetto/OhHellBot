@@ -1,2 +1,8 @@
-function card(rank, suit) { return { rank, suit } };
-exports.card = card;
+class Card {
+    constructor(rank, suit) {
+        this.rank = rank;
+        this.suit = suit;
+    }
+}
+
+exports.Card = Card;

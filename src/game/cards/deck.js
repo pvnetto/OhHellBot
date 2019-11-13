@@ -1,5 +1,5 @@
 const { Ranks, Suits } = require('./types');
-const { card } = require('./card');
+const { Card } = require('./card');
 
 module.exports = class CardsDeck {
 
@@ -19,7 +19,7 @@ module.exports = class CardsDeck {
 
         return {
             drawn: drawnCard,
-            trump: card(trumpRank, drawnCard.suit),
+            trump: new Card(trumpRank, drawnCard.suit),
         };
     }
 
@@ -34,7 +34,7 @@ module.exports = class CardsDeck {
     }
 
     drawCardByIndex(index) {
-        const drawnCard = this.deck.splice(index, 1);
+        const [drawnCard] = this.deck.splice(index, 1);
         return drawnCard;
     }
 
@@ -56,7 +56,7 @@ function _buildDeck() {
     let deck = [];
     Object.keys(Ranks).forEach(rank => {
         Object.keys(Suits).forEach(suit => {
-            deck.push(card(rank, suit));
+            deck.push(new Card(rank, suit));
         });
     });
     return deck;
