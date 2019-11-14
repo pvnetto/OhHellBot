@@ -4,7 +4,7 @@ const LobbyManager = require('../managers/lobby');
 
 const lobby = new Scene('lobby');
 
-lobby.enter(({ db, session, from, reply }) => session.lobby.lobbyManager = new LobbyManager({ db, session, from, reply }));
+lobby.enter(({ db, session, reply }) => session.lobby.lobbyManager = new LobbyManager(session.lobby.owner, { db, reply }));
 
 lobby.help((ctx) => ctx.reply('/join: Joins the match.\n/leave: Leaves the match.\n/start: Starts the match.'));
 

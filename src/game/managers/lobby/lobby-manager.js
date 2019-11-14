@@ -1,9 +1,9 @@
 const Extra = require('telegraf/extra');
 
 module.exports = class LobbyManager {
-    constructor({ db, session, reply }) {
+    constructor(owner, { db, reply }) {
         this.players = [];
-        this.owner = session.lobby.owner;
+        this.owner = owner;
         this.maxPlayers = 7;
         this.minPlayers = 2;
 
@@ -32,7 +32,7 @@ module.exports = class LobbyManager {
 
     addPlayer(newPlayer, { db, reply }, options = { showAlert: true }) {
         if (this._isLobbyFull()) {
-            reply('This match is already full!');
+            reply(`Sorry ${newPlayer.first_name}, this match is already full.`);
         }
         else if (this._isPlayerInLobby(newPlayer)) {
             reply(`${newPlayer.first_name} is already in this lobby.`)
@@ -89,7 +89,7 @@ module.exports = class LobbyManager {
     }
 
     _isPlayerInAnotherLobby(lobbyPlayer, { db }) {
-        return Object.keys(db).includes(lobbyPlayer.id);
+        return Object.keys(db).find(key => key == lobbyPlayer.id);
     }
 
     _isMatchReady() {

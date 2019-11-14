@@ -2,9 +2,8 @@ const { Ranks, Suits } = require('./types');
 const { Card } = require('./card');
 
 function evaluateCards(cards, trumpCard) {
-    if (!trumpCard instanceof Card || !cards.every(card => card instanceof Card)) {
-        throw new TypeError(`Error. Trying to evaluate object that is not Card.`);
-    }
+    if (!trumpCard instanceof Card) throw new TypeError(`Error. Trump Card is not a Card.`);
+    if (!cards.every(card => card instanceof Card)) throw new TypeError(`Error. One or more of the cards is not a Card.`);
 
     let evaluatedCards = [];
     let spoiledCards = [];
