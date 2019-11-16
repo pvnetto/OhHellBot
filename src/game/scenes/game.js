@@ -9,7 +9,7 @@ game.enter(async ({ db, session, scene, reply }) => {
     session.game.gameManager = gameManager;
 
     await reply('The game has begun!');
-    await gameManager.switchState(States.BET);
+    await gameManager.switchState(States.DRAW);
 });
 
 module.exports = game;

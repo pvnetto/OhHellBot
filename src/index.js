@@ -6,12 +6,12 @@ const Stage = require('telegraf/stage');
 require('dotenv').config();
 
 // Importing scenes
-const { greeter, lobby, game, bets, round } = require('./game/scenes');
+const { greeter, lobby, game, draw, bets, round } = require('./game/scenes');
 const CardStickerManager = require('./game/cards/card-sticker-manager');
 
 
 // Setting up the stage
-const stage = new Stage([greeter, lobby, game, bets, round], { default: 'greeter' });
+const stage = new Stage([greeter, lobby, game, draw, bets, round], { default: 'greeter' });
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 //get username for group command handling

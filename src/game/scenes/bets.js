@@ -3,9 +3,7 @@ const BetsManager = require('../managers/bets');
 
 const bets = new Scene('bets');
 
-bets.enter(async ({ stickerManager, db, session, telegram }) => {
-    await session.game.gameManager.distributeCards({ stickerManager, session, telegram });
-
+bets.enter(async ({ db, session, telegram }) => {
     const betManager = new BetsManager({ db, session });
     session.game.betManager = betManager;
 

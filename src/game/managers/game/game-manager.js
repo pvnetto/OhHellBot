@@ -37,6 +37,7 @@ module.exports = class GameManager {
     }
 
     get isGameOver() { return this.players.length <= 1; }
+    // get isGameOver() { return false; }
 
     async switchState(newState) {
         switch (newState) {
@@ -61,7 +62,7 @@ module.exports = class GameManager {
         const userDb = db[from.id];
 
         if (this.currentState === States.BET && userDb.betManager) {
-            return await userDb.betManager.getBetInlineQueryOptions(this.drawManager.hands, { stickerManager, from, inlineQuery, telegram });
+            return await userDb.betManager.handleInlineQuery(this.drawManager.hands, { stickerManager, from, inlineQuery, telegram });
         }
         else if (this.currentState === States.ROUND && userDb.roundManager) {
             return await userDb.roundManager.getPlayerInlineQueryOptions({ stickerManager, from, telegram });
