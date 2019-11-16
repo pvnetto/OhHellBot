@@ -36,6 +36,8 @@ module.exports = class GameManager {
         await this.drawManager.sendRoundStartMessage(this.players[0], this.roundCount, { stickerManager, session, telegram });
     }
 
+    get isGameOver() { return this.players.length <= 1; }
+
     async switchState(newState) {
         switch (newState) {
             case States.DRAW:
@@ -68,11 +70,21 @@ module.exports = class GameManager {
     }
 
     async endRound(bets, roundScores, { db, session, telegram }) {
-
-        await this._resolveRound(bets, roundScores, { session, telegram });
+        await this.resolveRound(bets, roundScores, { session, telegram });
 
         // Checks if match has ended
-        if (this.players.length <= 1) {
+        if (this.isGameOver) {
+            await this.handleGameOver({ db, session, telegram });
+        }
+        else {
+            await this.handleNextRound();
+            await this.switchState(States.DRAW);
+        }
+    }
+
+    async handleGameOver({ db, session, telegram }) {
+        if (this.isGameOver) {
+            // Checks if match has ended
             if (this.players.length === 1) {
                 let winner = this.players[0];
                 await telegram.sendMessage(session.lobby.groupId, `Game over.\n${winner.first_name} is the winner!`);
@@ -87,31 +99,20 @@ module.exports = class GameManager {
             session.game = {};
             await this.scene.enter('greeter');
         }
-        else {
-            this.players = reorderPlayers(this.players, this.players[1]);
-            this.roundCount += 1;
-            this.drawManager.handleCardsToDrawIncrement();
-            await this.switchState(States.DRAW);
-        }
     }
 
-    async _resolveRound(bets, roundScores, { session, telegram }) {
+    handleNextRound() {
+        this.players = reorderPlayers(this.players, this.players[1]);
+        this.roundCount += 1;
+        this.drawManager.handleCardsToDrawIncrement();
+    }
+
+    async resolveRound(bets, roundScores, { session, telegram }) {
         let roundMsg = `*End of round #${this.roundCount}*\n`;
         this.startPlayers.forEach((currentPlayer) => {
             if (this.players.includes(currentPlayer)) {
-                let strikeCount = Math.abs(bets[currentPlayer.id] - roundScores[currentPlayer.id]);
-                this.strikes[currentPlayer.id] += strikeCount;
-
-                const currentPlayerStrikes = this.strikes[currentPlayer.id];
-                const isEliminated = currentPlayerStrikes >= 5;
-
-                if (isEliminated) {
-                    let eliminatedIdx = this.players.findIndex(player => player.id == currentPlayer.id);
-                    let [eliminatedPlayer] = this.players.splice(eliminatedIdx, 1);
-                }
-
-                roundMsg += `[${currentPlayer.first_name}](tg://user?id=${currentPlayer.id}) - Strikes: ${strikeCount} | `
-                    + `Total: ${currentPlayerStrikes}${isEliminated ? '| Eliminated' : ''}\n`;
+                const strikesMsg = this.handlePlayerStrikes(currentPlayer, bets[currentPlayer.id], roundScores[currentPlayer.id]);
+                roundMsg += strikesMsg;
             }
             else {
                 roundMsg += `${currentPlayer.first_name} - Eliminated.\n`;
@@ -119,6 +120,19 @@ module.exports = class GameManager {
         });
 
         await telegram.sendMessage(session.lobby.groupId, roundMsg, { parse_mode: 'markdown' });
+    }
+
+    handlePlayerStrikes(player, bet, roundScore) {
+        let strikeCount = Math.abs(bet - roundScore);
+        this.strikes[player.id] += strikeCount;
+
+        const currentPlayerStrikes = this.strikes[player.id];
+        const isEliminated = currentPlayerStrikes >= 5;
+
+        this.players = this.players.filter(player => this.strikes[player.id] < 5);
+
+        return `[${player.first_name}](tg://user?id=${player.id}) - Strikes: ${strikeCount} | `
+            + `Total: ${currentPlayerStrikes} ${isEliminated ? '| Eliminated' : ''}\n`;
     }
 
 }

@@ -22,9 +22,11 @@ beforeEach(() => {
         sendMessage: jest.fn(),
         sendSticker: jest.fn(),
     };
+
     mockStickerManager = {
         getStickerByCard: jest.fn(() => 0),
     };
+
     mockSession = {
         lobby: {
             groupId: 3123123,
@@ -43,6 +45,7 @@ test("cards to draw increments properly", async () => {
     for (let i = 2; i <= mockUsers.length; i++) {
         const players = mockUsers.slice(0, i);
         drawManager = new DrawManager(players);
+        expect(players.length).toBe(i);
 
         for (let j = 0; j < 20; j++) {
             expect(() => drawManager.distributeCards(players, i, ctx)).not.toThrow(RangeError);
