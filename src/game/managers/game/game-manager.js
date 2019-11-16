@@ -1,6 +1,6 @@
-const CardsDeck = require('../../cards/deck');
 const { reorderPlayers } = require('../utils');
 const { States } = require('./states');
+const DrawManager = require('../draw');
 
 module.exports = class GameManager {
 
@@ -10,53 +10,46 @@ module.exports = class GameManager {
         this.startPlayers = [...this.players];
         this.owner = Object.assign({}, session.lobby.owner);
         this.scene = scene;
-        this._currentState = States.DRAW;
+        this.currentState = States.DRAW;
 
         // Adds a reference for this to each player
         this.players.forEach(player => db[player.id].gameManager = this);
 
-        // Picks a random player to be the first to shuffle/play
-        let startingPlayerIdx = Math.floor(Math.random() * this.players.length);
-        this.players = reorderPlayers(this.players, this.players[startingPlayerIdx])
-
         // Game State variables
         this.roundCount = 1;
-        this._currentTrump = null;
         this.strikes = this.players.reduce((newObj, player) => {
             newObj[player.id] = 0;
             return newObj;
         }, {});
 
-        // Deck variables
-        this.deck = new CardsDeck();
-
         // Draw variables
-        this.cardsToDraw = 1;
-        this.maxDraw = Math.min(Math.floor((this.deck.maxDeckSize - 1) / this.players.length), 7);
-        this.reachedMaxDraw = false;
-        this.hands = {};
-
-        // Binding methods
-        this.distributeCards.bind(this);
-        this.endRound.bind(this);
-        this._resolveRound.bind(this);
-        this._handleCardsToDrawIncrement.bind(this);
+        this.drawManager = new DrawManager(this.players);
     }
 
-    get trumpCard() { return this._currentTrump; }
+    // Delegating draw manager methods
+    get trumpCard() { return this.drawManager.currentTrump; }
+    get cardsToDraw() { return this.drawManager.cardsToDraw; }
+    get hands() { return this.drawManager.hands };
+
+    async distributeCards({ stickerManager, session, telegram }) {
+        return await this.drawManager.distributeCards(this.players, this.roundCount, { stickerManager, session, telegram });
+    }
 
     async switchState(newState) {
         switch (newState) {
+            case States.DRAW:
+                this.currentState = States.DRAW;
+                await this.scene.enter('draw');
+                break;
             case States.BET:
-                this._currentState = States.BET;
+                this.currentState = States.BET;
                 await this.scene.enter('bets');
                 break;
             case States.ROUND:
-                this._currentState = States.ROUND;
+                this.currentState = States.ROUND;
                 await this.scene.enter('round');
                 break;
             default:
-                this._currentState = States.DRAW;
                 break;
         }
     }
@@ -64,39 +57,13 @@ module.exports = class GameManager {
     async getInlineQueryOptions({ stickerManager, from, inlineQuery, db, telegram }) {
         const userDb = db[from.id];
 
-        if (this._currentState === States.BET && userDb.betManager) {
-            return await userDb.betManager.getBetInlineQueryOptions(this.hands, { stickerManager, from, inlineQuery, telegram });
+        if (this.currentState === States.BET && userDb.betManager) {
+            return await userDb.betManager.getBetInlineQueryOptions(this.drawManager.hands, { stickerManager, from, inlineQuery, telegram });
         }
-        else if (this._currentState === States.ROUND && userDb.roundManager) {
+        else if (this.currentState === States.ROUND && userDb.roundManager) {
             return await userDb.roundManager.getPlayerInlineQueryOptions({ stickerManager, from, telegram });
         }
         return [];
-    }
-
-    async distributeCards({ stickerManager, session, telegram }) {
-        let firstPlayer = this.players[0];
-
-        this.deck.reset();
-        this.deck.shuffle();
-        const { drawn, trump } = this.deck.drawTrumpCard();
-        this._currentTrump = trump;
-
-        this.players.forEach(player => {
-            this.hands[player.id] = this.deck.drawCards(this.cardsToDraw);
-        });
-
-        await this._sendCardSticker(session.lobby.groupId, this._currentTrump, { stickerManager, telegram });
-
-        const roundStartMsg =
-            `*Round #${this.roundCount}.*\n`
-            + `${firstPlayer.first_name} deals ${this.cardsToDraw} card${this.cardsToDraw > 1 ? 's' : ''} for each player.\n`
-            + `The trump card for this round is ${this._currentTrump.rank} of ${this._currentTrump.suit}.`;
-        await telegram.sendMessage(session.lobby.groupId, roundStartMsg, { parse_mode: 'markdown' });
-    }
-
-    async _sendCardSticker(id, card, { stickerManager, telegram }) {
-        const cardSticker = await stickerManager.getStickerByCard(card, { telegram });
-        await telegram.sendSticker(id, cardSticker.file_id);
     }
 
     async endRound(bets, roundScores, { db, session, telegram }) {
@@ -122,8 +89,8 @@ module.exports = class GameManager {
         else {
             this.players = reorderPlayers(this.players, this.players[1]);
             this.roundCount += 1;
-            this._handleCardsToDrawIncrement();
-            await this.switchState(States.BET);
+            this.drawManager.handleCardsToDrawIncrement();
+            await this.switchState(States.DRAW);
         }
     }
 
@@ -151,17 +118,6 @@ module.exports = class GameManager {
         });
 
         await telegram.sendMessage(session.lobby.groupId, roundMsg, { parse_mode: 'markdown' });
-    }
-
-    _handleCardsToDrawIncrement() {
-        // Handles the case where the player reached the max draw count by reversing the increment of cards to draw
-        if (!this.reachedMaxDraw && this.cardsToDraw >= this.maxDraw) {
-            this.reachedMaxDraw = true;
-        }
-        else if (this.reachedMaxDraw && this.cardsToDraw - 1 <= 0) {
-            this.reachedMaxDraw = false;
-        }
-        this.cardsToDraw = this.reachedMaxDraw ? this.cardsToDraw - 1 : this.cardsToDraw + 1;
     }
 
 }
