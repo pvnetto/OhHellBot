@@ -9,6 +9,10 @@ module.exports = class BetsManager {
         this.roundCount = session.game.gameManager.roundCount;
         this.cardCount = session.game.gameManager.cardsToDraw;
 
+        if (!this.isFirstRound) {
+            this.players = reorderPlayers(this.players, this.players[1]);
+        }
+
         // Adds a reference to this for each player
         this.players.forEach(player => db[player.id].betManager = this);
 
@@ -20,10 +24,6 @@ module.exports = class BetsManager {
     get isFirstRound() { return this.roundCount === 1; }
 
     async beginBetPhase({ session, telegram }) {
-        if (!this.isFirstRound) {
-            this.players = reorderPlayers(this.players, this.players[1]);
-        }
-
         const betOrderMsg = this.makeBetOrderMsg();
         await telegram.sendMessage(session.lobby.groupId, `\n*Beginning the bet round.*\n${betOrderMsg}`, { parse_mode: 'markdown' });
         await this.announceBetTurnPlayer({ session, telegram });
