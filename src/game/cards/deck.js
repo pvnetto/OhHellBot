@@ -24,8 +24,9 @@ module.exports = class CardsDeck {
     }
 
     drawCards(count) {
-        let drawnCards = [];
+        if (count > this.deck.length) throw new RangeError("There are not enough cards to draw.");
 
+        let drawnCards = [];
         for (let i = 0; i < count; i++) {
             drawnCards.push(this.deck.pop());
         }

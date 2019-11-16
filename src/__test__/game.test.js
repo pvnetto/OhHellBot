@@ -29,7 +29,11 @@ beforeEach(() => {
         }
     };
 
-    gameManager = new GameManager({ db: mockDb, session: mockSession, scene: mockScene });
+    // gameManager = new GameManager({ db: mockDb, session: mockSession, scene: mockScene });
+});
+
+test("", () => {
+
 });
 
 

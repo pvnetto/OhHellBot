@@ -32,7 +32,8 @@ module.exports = class GameManager {
     get hands() { return this.drawManager.hands };
 
     async distributeCards({ stickerManager, session, telegram }) {
-        return await this.drawManager.distributeCards(this.players, this.roundCount, { stickerManager, session, telegram });
+        this.drawManager.distributeCards(this.players, this.roundCount, { stickerManager, session, telegram });
+        await this.drawManager.sendRoundStartMessage(this.players[0], this.roundCount, { stickerManager, session, telegram });
     }
 
     async switchState(newState) {

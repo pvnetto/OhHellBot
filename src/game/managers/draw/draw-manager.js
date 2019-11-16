@@ -16,21 +16,26 @@ module.exports = class DrawManager {
         this.currentTrump = null;
     }
 
-    async distributeCards(players, roundCount, { stickerManager, session, telegram }) {
+    reset() {
+        this.hands = {};
+        this.currentTrump = null;
+
         this.deck.reset();
         this.deck.shuffle();
+    }
+
+    distributeCards(players) {
+        this.reset();
+
         const { drawn, trump } = this.deck.drawTrumpCard();
         this.currentTrump = trump;
 
         players.forEach(player => {
             this.hands[player.id] = this.deck.drawCards(this.cardsToDraw);
         });
-
-        let firstPlayer = players[0];
-        await this._sendRoundStartMessage(firstPlayer, roundCount, { stickerManager, session, telegram });
     }
 
-    async _sendRoundStartMessage(firstPlayer, roundCount, { stickerManager, session, telegram }) {
+    async sendRoundStartMessage(firstPlayer, roundCount, { stickerManager, session, telegram }) {
         // Sends trump card sticker
         const cardSticker = await stickerManager.getStickerByCard(this.currentTrump, { telegram });
         await telegram.sendSticker(session.lobby.groupId, cardSticker.file_id);
