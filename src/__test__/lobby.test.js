@@ -1,101 +1,87 @@
 const LobbyManager = require('../game/managers/lobby');
+const users = require('./mock/users');
+const { mockContext, mockPreLobbySession } = require('./mock/context');
 
-let mockReply;
-let mockDb;
-let mockScene;
-let mockSession;
-
-const mockUsers = [
-    { id: 2, first_name: 'Paiva2', },
-    { id: 3, first_name: 'Paiva3', },
-    { id: 4, first_name: 'Paiva4', },
-    { id: 5, first_name: 'Paiva5', },
-    { id: 6, first_name: 'Paiva6', },
-    { id: 7, first_name: 'Paiva7', },
-];
-const owner = { id: 1, first_name: 'Paiva1', };
+const owner = users[0];
+let ctx;
 
 let lobbyManager;
 
 beforeEach(() => {
-    mockReply = jest.fn();
-    mockDb = {};
-    mockScene = {
-        enter: jest.fn(),
-    };
-    mockSession = { lobby: {} };
+    ctx = mockContext();
+    ctx.session = mockPreLobbySession();
 
-    lobbyManager = new LobbyManager(owner, { db: mockDb, reply: mockReply });
+    lobbyManager = new LobbyManager(owner, ctx);
 });
 
 describe("add players to lobby", () => {
     test("adds owner when lobby is created", () => {
         expect(lobbyManager.players).toContain(owner);
-        expect(mockDb[owner.id]).toBeDefined();
+        expect(ctx.db[owner.id]).toBeDefined();
     });
 
     test("adds player when it's not in the lobby", () => {
-        const player = mockUsers[1];
-        lobbyManager.addPlayer(player, { db: mockDb, reply: mockReply });
+        const player = users[1];
+        lobbyManager.addPlayer(player, ctx);
 
         expect(lobbyManager.players).toContain(player);
-        expect(mockDb[player.id]).toBeDefined();
+        expect(ctx.db[player.id]).toBeDefined();
     });
 
     test("doesn't add player when it's already in the lobby", () => {
-        lobbyManager.addPlayer(owner, { db: mockDb, reply: mockReply });
+        lobbyManager.addPlayer(owner, ctx);
         expect(lobbyManager.players.length).toBe(1);
     });
 
     test("can't add more players than max capacity", () => {
-        mockUsers.forEach(user => {
-            lobbyManager.addPlayer(user, { db: mockDb, reply: mockReply });
+        users.forEach(user => {
+            lobbyManager.addPlayer(user, ctx);
         });
 
         const lastUser = { id: 99, first_name: 'the last user' };
-        lobbyManager.addPlayer(lastUser, { db: mockDb, reply: mockReply });
+        lobbyManager.addPlayer(lastUser, ctx);
 
         expect(lobbyManager).not.toContain(lastUser);
     });
 
     test("doesn't add player when it's in another lobby", () => {
-        const player = mockUsers[1];
-        mockDb[player.id] = {};
-        lobbyManager.addPlayer(player, { db: mockDb, reply: mockReply });
+        const player = users[1];
+        ctx.db[player.id] = {};
+        lobbyManager.addPlayer(player, ctx);
 
-        expect(mockDb[player.id]).toBeDefined();
+        expect(ctx.db[player.id]).toBeDefined();
         expect(lobbyManager.players).not.toContain(player);
     });
 });
 
 describe("remove players from lobby", () => {
     test("removes player properly", () => {
-        lobbyManager.removePlayer(owner, { db: mockDb, reply: mockReply });
-        expect(mockDb[owner.id]).toBeUndefined();
+        lobbyManager.removePlayer(owner, ctx);
+        expect(ctx.db[owner.id]).toBeUndefined();
         expect(lobbyManager.players).not.toContain(owner);
     });
 
     test("removed player can join the lobby again", () => {
-        const player = mockUsers[1];
-        lobbyManager.addPlayer(player, { db: mockDb, reply: mockReply });
-        lobbyManager.removePlayer(player, { db: mockDb, reply: mockReply });
+        const player = users[1];
+        lobbyManager.addPlayer(player, ctx);
+        lobbyManager.removePlayer(player, ctx);
         expect(lobbyManager.players).not.toContain(player);
 
-        lobbyManager.addPlayer(player, { db: mockDb, reply: mockReply });
+        lobbyManager.addPlayer(player, ctx);
         expect(lobbyManager.players).toContain(player);
     });
 })
 
 describe("start match", () => {
     test("can't start match with less than min players", () => {
-        lobbyManager.startMatch({ scene: mockScene, session: mockSession, reply: mockReply });
-        expect(mockScene.enter).not.toBeCalled();
+        lobbyManager.startMatch(ctx);
+        expect(ctx.scene.enter).not.toBeCalled();
     });
 
     test("begins game properly when enough players", () => {
-        const player = mockUsers[1];
-        lobbyManager.addPlayer(player, { db: mockDb, reply: mockReply });
-        lobbyManager.startMatch({ scene: mockScene, session: mockSession, reply: mockReply });
-        expect(mockScene.enter).toBeCalledWith('game');
+        const player = users[1];
+        lobbyManager.addPlayer(player, ctx);
+        lobbyManager.startMatch(ctx);
+        expect(ctx.scene.enter).toBeCalledWith('game');
     });
 })

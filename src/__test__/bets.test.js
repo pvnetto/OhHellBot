@@ -1,52 +1,22 @@
 const GameManager = require('../game/managers/game');
 const BetManager = require('../game/managers/bets');
+const users = require('./mock/users');
+const { mockContext, mockPostLobbySession } = require('./mock/context');
 
-const mockUsers = [
-    { id: 1, first_name: 'Paiva1', },
-    { id: 2, first_name: 'Paiva2', },
-    { id: 3, first_name: 'Paiva3', },
-    { id: 4, first_name: 'Paiva4', },
-    { id: 5, first_name: 'Paiva5', },
-    { id: 6, first_name: 'Paiva6', },
-    { id: 7, first_name: 'Paiva7', },
-];
-
-let mockDb;
-let mockSession;
-let mockScene;
-let mockTelegram;
-let mockReply;
 let ctx;
 
 beforeEach(() => {
-    mockReply = jest.fn();
-    mockDb = {};
+    ctx = mockContext(users);
+    session = mockPostLobbySession(users);
 
-    mockScene = {
-        enter: jest.fn(),
-    };
-
-    mockSession = {
-        game: {},
-        lobby: {
-            groupId: 3124123,
-            players: [...mockUsers]
-        }
-    };
-
-    mockTelegram = {
-        sendMessage: jest.fn()
-    };
-
-    mockUsers.forEach(user => mockDb[user.id] = {});
-    ctx = { reply: mockReply, db: mockDb, scene: mockScene, session: mockSession, telegram: mockTelegram };
-    mockSession.game.gameManager = new GameManager({ db: mockDb, session: mockSession, scene: mockScene });
+    ctx = { ...ctx, session };
+    ctx.session.game.gameManager = new GameManager(ctx);
 });
 
 describe("bet order", () => {
     test("on first round, current dealer is the first to bet", () => {
         const betManager = new BetManager(ctx);
-        expect(betManager.players[0]).toEqual(mockUsers[0]);
+        expect(betManager.players[0]).toEqual(users[0]);
     });
 
     test("on every other round, next dealer is the first to bet, current dealer is the last", () => {
@@ -107,7 +77,7 @@ describe("players are forced to obey bet rules", () => {
                     betManager.placeBet(betPlayers[i], 2, ctx);
                     expect(betManager.currentPlayerIdx).toBe(i);
 
-                    const replyCalls = mockReply.mock.calls;
+                    const replyCalls = ctx.reply.mock.calls;
                     expect(replyCalls[replyCalls.length - 1][0]).toMatch('Invalid bet value');
                 }
                 else {
@@ -125,7 +95,7 @@ describe("players are forced to obey bet rules", () => {
                 for (let j = 0; j < betPlayers.length; j++) {
                     if (i != j) {
                         betManager.placeBet(betPlayers[j], 0, ctx);
-                        const replyCalls = mockReply.mock.calls;
+                        const replyCalls = ctx.reply.mock.calls;
                         expect(replyCalls[replyCalls.length - 1][0]).toMatch('not your turn');
                     }
                     expect(betManager.currentPlayerIdx).toBe(i);
