@@ -1,5 +1,6 @@
 const GameManager = require('../game/managers/game');
 const BetManager = require('../game/managers/bets');
+const RoundManager = require('../game/managers/round');
 const users = require('./mock/users');
 const { mockContext, mockPostLobbySession } = require('./mock/context');
 
@@ -14,27 +15,91 @@ beforeEach(() => {
 });
 
 describe("during first round", () => {
-    test("auto plays when each player has only 1 card left", () => {
+    let betManager, roundManager;
+    beforeEach(async () => {
+        await ctx.session.game.gameManager.distributeCards(ctx);
+        ctx.session.game.betManager = new BetManager(ctx);
+        ctx.session.game.roundManager = new RoundManager(ctx);
 
+        betManager = ctx.session.game.betManager;
+        roundManager = ctx.session.game.roundManager;
+
+        for (let i = 0; i < betManager.players; i++) {
+            betManager.placeBet(betManager.players[i], 0, ctx);
+        }
+    });
+
+    test("auto plays the first round", async () => {
+        expect(roundManager.isRoundOver).toBeFalsy();
+        await roundManager.startTurn(ctx);
+        expect(roundManager.isRoundOver).toBeTruthy();
+    });
+
+    // Easier to test on the first turn than second
+    test("winner of the round is the first to play next turn", async () => {
+        await roundManager.startTurn(ctx);
+        const roundScores = roundManager.roundScores;
+        const roundWinnerId = Object.keys(roundManager.roundScores).find(playerId => roundScores[playerId] === 1);
+        const roundWinner = roundManager.players.find(player => player.id == roundWinnerId);
+
+        expect(roundManager.players[0]).toEqual(roundWinner);
     });
 })
 
 describe("from second round onwards", () => {
-    test("players can only play when it's their turn", () => {
+    let betManager, roundManager;
+    beforeEach(async () => {
+        ctx.session.game.gameManager.handleNextRound();
+        await ctx.session.game.gameManager.distributeCards(ctx);
 
+        ctx.session.game.betManager = new BetManager(ctx);
+        ctx.session.game.roundManager = new RoundManager(ctx);
+
+        betManager = ctx.session.game.betManager;
+        roundManager = ctx.session.game.roundManager;
+
+        for (let i = 0; i < betManager.players; i++) {
+            betManager.placeBet(betManager.players[i], 0, ctx);
+        }
     });
 
-    test("users that are not in the match can't play cards", () => {
+    test("auto plays when each player has only 1 card left", async () => {
+        await roundManager.startTurn(ctx);
+        expect(roundManager.isRoundOver).toBeFalsy();
 
+        let roundPlayers = roundManager.players;
+        for (let i = 0; i < roundPlayers.length; i++) {
+            await roundManager.placeCard(roundPlayers[i], 0, ctx);
+        }
+
+        expect(roundManager.isRoundOver).toBeTruthy();
     });
 
-    test("winner of the round is the first to play next round", () => {
+    test("players can only play when it's their turn", async () => {
+        await roundManager.startTurn(ctx);
 
+        let roundPlayers = roundManager.players;
+
+        for (const [i, player] of roundPlayers.entries()) {
+            for (const [j, otherPlayer] of roundPlayers.entries()) {
+                if (player == otherPlayer) continue;
+
+                await roundManager.placeCard(otherPlayer, 0, ctx);
+                expect(roundManager.turnPlayerIdx).toBe(i);
+                expect(roundManager.isRoundOver).toBeFalsy();
+            }
+
+            await roundManager.placeCard(player, 0, ctx);
+            expect(roundManager.turnPlayerIdx).toBe(i + 1);
+        }
     });
-})
 
-describe("on any round", () => {
-    test("card is removed from player hand and added to turn cards when it's played", () => {
+    test("users that are not in the match can't play cards", async () => {
+        await roundManager.startTurn(ctx);
 
+        const userNotInMatch = { id: 43242, first_name: 'Outsider' };
+        await roundManager.placeCard(userNotInMatch, 0, ctx);
+
+        expect(roundManager.turnPlayerIdx).toBe(0);
     });
 });
