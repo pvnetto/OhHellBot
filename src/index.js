@@ -17,8 +17,8 @@ const expressApp = express()
 const stage = new Stage([greeter, lobby, game, draw, bets, round], { default: 'greeter' });
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-expressApp.use(bot.webhookCallback('/fodinhabotsecret'));
-bot.telegram.setWebhook(`${process.env.BOT_URL}/fodinhabotsecret`);
+expressApp.use(bot.webhookCallback(`${process.env.BOT_SECRET_PATH}`));
+bot.telegram.setWebhook(`${process.env.BOT_URL}/${process.env.BOT_SECRET_PATH}`);
 
 expressApp.listen(port, () => {
     console.log(`Listening on port ${port}!`);

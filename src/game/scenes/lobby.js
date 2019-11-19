@@ -16,6 +16,6 @@ lobby.action(/join/, ({ session, from, telegram, reply }) => session.lobby.lobby
 lobby.command('leave', ({ db, session, from, reply }) => session.lobby.lobbyManager.removePlayer(from, { db, reply }));
 lobby.command('list', ({ session, reply }) => session.lobby.lobbyManager.listPlayers({ reply }));
 lobby.command('start', ({ scene, session, reply }) => session.lobby.lobbyManager.startMatch({ scene, session, reply }));
-lobby.command('close', ({ from, reply }) => console.log("Closing the lobby"));
+lobby.command('close', async (ctx) => await ctx.session.lobby.lobbyManager.closeLobby(ctx));
 
 module.exports = lobby;

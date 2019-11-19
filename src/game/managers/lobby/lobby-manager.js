@@ -13,6 +13,7 @@ module.exports = class LobbyManager {
         this.removePlayer.bind(this);
         this.listPlayers.bind(this);
         this.startMatch.bind(this);
+        this.closeLobby.bind(this);
         this._isPlayerInLobby.bind(this);
         this._isLobbyFull.bind(this);
         this._isMatchReady.bind(this);
@@ -82,6 +83,13 @@ module.exports = class LobbyManager {
         else {
             reply(`You need at least ${this.minPlayers} players to start a match.`)
         }
+    }
+
+    async closeLobby({ from, scene, session, reply }) {
+        session.lobby = {};
+        session.game = {};
+        await reply(`Lobby was closed by ${from.first_name}. Send /new to start a new lobby.`);
+        await scene.enter('greeter');
     }
 
     _isPlayerInLobby(lobbyPlayer) {
