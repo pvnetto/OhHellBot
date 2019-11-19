@@ -5,7 +5,7 @@ module.exports = class LobbyManager {
         this.players = [];
         this.owner = owner;
         this.maxPlayers = 7;
-        this.minPlayers = 2;
+        this.minPlayers = 1;
 
         // TODO: Move to ES6 and use arrow functions
         this._init.bind(this);

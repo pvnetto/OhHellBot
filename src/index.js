@@ -1,19 +1,28 @@
 const Telegraf = require('telegraf');
+const express = require('express')
 
 const session = require('telegraf/session');
 const Stage = require('telegraf/stage');
 
-require('dotenv').config();
-
-// Importing scenes
 const { greeter, lobby, game, draw, bets, round } = require('./game/scenes');
 const CardStickerManager = require('./game/cards/card-sticker-manager');
 
+require('dotenv').config();
+
+const port = process.env.PORT || 8443 // Correct port will be returned here
+
+const expressApp = express()
 
 // Setting up the stage
 const stage = new Stage([greeter, lobby, game, draw, bets, round], { default: 'greeter' });
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
+expressApp.use(bot.webhookCallback('/fodinhabotsecret'));
+bot.telegram.setWebhook(`${process.env.BOT_URL}/fodinhabotsecret`);
+
+expressApp.listen(port, () => {
+    console.log(`Listening on port ${port}!`);
+});
 
 //get username for group command handling
 bot.telegram.getMe().then((botInfo) => {
