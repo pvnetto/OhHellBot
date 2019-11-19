@@ -13,7 +13,7 @@ lobby.command('new', ({ reply }) => reply(`There's already an active lobby!`));
 lobby.command('join', ({ db, session, from, telegram, reply }) => session.lobby.lobbyManager.addPlayer(from, { db, telegram, reply }));
 lobby.action(/join/, ({ session, from, telegram, reply }) => session.lobby.lobbyManager.addPlayer(from, { telegram, reply }));
 
-lobby.command('leave', ({ db, session, from, reply }) => session.lobby.lobbyManager.removePlayer(from, { db, reply }));
+lobby.command('leave', async ({ db, session, from, reply }) => await session.lobby.lobbyManager.leaveLobby(from, { db, reply }));
 lobby.command('list', ({ session, reply }) => session.lobby.lobbyManager.listPlayers({ reply }));
 lobby.command('start', ({ scene, session, reply }) => session.lobby.lobbyManager.startMatch({ scene, session, reply }));
 lobby.command('close', async (ctx) => await ctx.session.lobby.lobbyManager.closeLobby(ctx));

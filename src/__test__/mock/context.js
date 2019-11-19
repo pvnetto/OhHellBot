@@ -46,6 +46,7 @@ exports.mockContext = function (users = []) {
     }, {});
 
     return {
+        from: { id: 9991234, first_name: "Frommskie" },
         stickerManager: mockStickerManager(),
         db,
         session: {},

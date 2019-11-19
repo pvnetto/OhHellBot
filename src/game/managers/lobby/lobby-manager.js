@@ -10,7 +10,7 @@ module.exports = class LobbyManager {
         // TODO: Move to ES6 and use arrow functions
         this._init.bind(this);
         this.addPlayer.bind(this);
-        this.removePlayer.bind(this);
+        this.leaveLobby.bind(this);
         this.listPlayers.bind(this);
         this.startMatch.bind(this);
         this.closeLobby.bind(this);
@@ -52,15 +52,21 @@ module.exports = class LobbyManager {
         }
     }
 
-    removePlayer(lobbyPlayer, { db, reply }) {
+    async leaveLobby(lobbyPlayer, { db, reply }) {
+        if (this._removePlayer(lobbyPlayer, { db })) {
+            await reply(`${lobbyPlayer.first_name} left the lobby!`);
+            this.listPlayers({ reply });
+        }
+    }
+
+    _removePlayer(lobbyPlayer, { db }) {
         if (this._isPlayerInLobby(lobbyPlayer)) {
             let playerIdx = this.players.findIndex(player => player.id === lobbyPlayer.id);
             this.players.splice(playerIdx, 1);
             delete db[lobbyPlayer.id];
-
-            reply(`${lobbyPlayer.first_name} left the lobby!`);
-            this.listPlayers({ reply });
+            return true;
         }
+        return false;
     }
 
     listPlayers({ reply }) {
@@ -85,9 +91,14 @@ module.exports = class LobbyManager {
         }
     }
 
-    async closeLobby({ from, scene, session, reply }) {
+    async closeLobby({ from, scene, db, session, reply }) {
         session.lobby = {};
         session.game = {};
+
+        while (this.players.length > 0) {
+            this._removePlayer(this.players[0], { db });
+        }
+
         await reply(`Lobby was closed by ${from.first_name}. Send /new to start a new lobby.`);
         await scene.enter('greeter');
     }

@@ -56,7 +56,7 @@ describe("add players to lobby", () => {
 
 describe("remove players from lobby", () => {
     test("removes player properly", () => {
-        lobbyManager.removePlayer(owner, ctx);
+        lobbyManager.leaveLobby(owner, ctx);
         expect(ctx.db[owner.id]).toBeUndefined();
         expect(lobbyManager.players).not.toContain(owner);
     });
@@ -64,11 +64,24 @@ describe("remove players from lobby", () => {
     test("removed player can join the lobby again", () => {
         const player = users[1];
         lobbyManager.addPlayer(player, ctx);
-        lobbyManager.removePlayer(player, ctx);
+        lobbyManager.leaveLobby(player, ctx);
         expect(lobbyManager.players).not.toContain(player);
 
         lobbyManager.addPlayer(player, ctx);
         expect(lobbyManager.players).toContain(player);
+    });
+
+    test("all players are removed when the lobby is closed", async () => {
+        for (const user of users) {
+            lobbyManager.addPlayer(user, ctx);
+            expect(lobbyManager.players).toContain(user);
+        }
+
+        await lobbyManager.closeLobby(ctx);
+
+        for (const user of users) {
+            expect(lobbyManager.players).not.toContain(user);
+        }
     });
 })
 
@@ -84,4 +97,4 @@ describe("start match", () => {
         lobbyManager.startMatch(ctx);
         expect(ctx.scene.enter).toBeCalledWith('game');
     });
-})
+});
