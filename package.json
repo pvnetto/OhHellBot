@@ -4,6 +4,7 @@
   "description": "A Telegram Bot for the Fodinha Game",
   "main": "index.js",
   "scripts": {
+    "start": "node src/index.js",
     "test": "jest"
   },
   "keywords": [
@@ -24,5 +25,8 @@
   },
   "devDependencies": {
     "jest": "^24.9.0"
+  },
+  "engines": {
+    "node": "10.15.0"
   }
 }

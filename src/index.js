@@ -14,11 +14,13 @@ const CardStickerManager = require('./game/cards/card-sticker-manager');
 const stage = new Stage([greeter, lobby, game, draw, bets, round], { default: 'greeter' });
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
+
 //get username for group command handling
 bot.telegram.getMe().then((botInfo) => {
     bot.options.username = botInfo.username;
     console.log("Initialized", botInfo.username);
 });
+
 
 bot.context.db = {};
 bot.context.stickerManager = new CardStickerManager();
