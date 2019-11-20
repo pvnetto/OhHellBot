@@ -10,7 +10,7 @@ const CardStickerManager = require('./game/cards/card-sticker-manager');
 require('dotenv').config();
 
 const port = process.env.PORT || 3000;  // Receives a port from heroku
-// const expressApp = express()
+const expressApp = express()
 
 // Setting up the stage
 const stage = new Stage([greeter, lobby, game, draw, bets, round], { default: 'greeter' });
@@ -57,9 +57,9 @@ bot.on('inline_query', async (ctx) => {
     return await ctx.answerInlineQuery(queryOptions, { cache_time: 0 });
 });
 
-// expressApp.listen(port, async () => {
-//     console.log(`Listening on port ${port}!`);
-// });
+expressApp.listen(port, async () => {
+    console.log(`Listening on port ${port}!`);
+});
 
 // expressApp.get('/', (req, res) => {
 //     res.send('Hello World!');
