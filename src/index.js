@@ -16,9 +16,8 @@ const expressApp = express()
 const stage = new Stage([greeter, lobby, game, draw, bets, round], { default: 'greeter' });
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
-bot.telegram.deleteWebhook();
-// expressApp.use(bot.webhookCallback(`/${process.env.BOT_SECRET_PATH}`));
-// bot.telegram.setWebhook(`${process.env.BOT_URL}:8443/${process.env.BOT_SECRET_PATH}`);
+expressApp.use(bot.webhookCallback(`/${process.env.BOT_SECRET_PATH}`));
+bot.telegram.setWebhook(`${process.env.BOT_URL}:443/${process.env.BOT_SECRET_PATH}`);
 
 //get username for group command handling
 bot.telegram.getMe().then((botInfo) => {
@@ -72,4 +71,4 @@ expressApp.listen(port, async () => {
 // });
 
 
-bot.launch();
+// bot.launch();
