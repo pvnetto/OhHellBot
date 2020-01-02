@@ -59,16 +59,3 @@ bot.on('inline_query', async (ctx) => {
 expressApp.listen(port, async () => {
     console.log(`Listening on port ${port}!`);
 });
-
-// expressApp.get('/', (req, res) => {
-//     res.send('Hello World!');
-// });
-
-// expressApp.post('/', (req, res) => {
-//     console.log(req.body);
-//     console.log("got it");
-//     res.status(200).send();
-// });
-
-
-// bot.launch();

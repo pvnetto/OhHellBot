@@ -3,8 +3,8 @@ const users = require('./mock/users');
 const { mockContext, mockPreLobbySession } = require('./mock/context');
 
 const owner = users[0];
-let ctx;
 
+let ctx;
 let lobbyManager;
 
 beforeEach(() => {
